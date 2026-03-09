@@ -272,12 +272,12 @@ export default function ReviewPage() {
               <p className="text-xs text-plenful-gray-500">MRN-889421</p>
             </div>
             <div>
-              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Prescriber</p>
+              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Referring Provider</p>
               <p className="text-sm font-medium text-plenful-gray-800">Dr. James Chen</p>
               <p className="text-xs text-plenful-gray-500">NPI 1891734562</p>
             </div>
             <div>
-              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Referred Specialist</p>
+              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Prescribing Specialist</p>
               <p className="text-sm font-medium text-plenful-gray-800">Dr. Lisa Park</p>
               <p className="text-xs text-plenful-gray-500">Rheumatology</p>
             </div>
@@ -287,9 +287,9 @@ export default function ReviewPage() {
               <p className="text-xs text-plenful-gray-500">adalimumab</p>
             </div>
             <div>
-              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Est. Annual Value</p>
+              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Est. 340B Savings</p>
               <p className="text-sm font-bold text-plenful-teal-dark">$28,400</p>
-              <p className="text-xs text-plenful-gray-500">340B savings</p>
+              <p className="text-xs text-plenful-gray-500">per fill</p>
             </div>
           </div>
         </div>
