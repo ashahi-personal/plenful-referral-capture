@@ -320,16 +320,6 @@ export default function ReviewPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-medium text-plenful-gray-400 uppercase">Q{qIndex + 1}</span>
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        q.confidence >= 90
-                          ? "bg-gradient-to-r from-plenful-magenta/10 to-pink-50 text-plenful-magenta border border-plenful-magenta/20"
-                          : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border border-amber-200"
-                      }`}>
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                        </svg>
-                        {q.confidence}%
-                      </div>
                       {state.status === "agreed" && (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-plenful-teal-light text-plenful-teal-dark">
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -347,25 +337,65 @@ export default function ReviewPage() {
                   </div>
                 </div>
 
-                {/* AI Answer / Override Mode */}
-                {!isOverriding ? (
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-plenful-gray-400">AI Answer:</span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                        state.answer === "yes" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                      }`}>
-                        {state.answer === "yes" ? "Yes" : "No"}
-                      </span>
+                {/* Evidence Excerpts — shown first so analyst reads before AI conclusion */}
+                <div className="space-y-2 mb-3">
+                  {relatedEvidence.map((item) => (
+                    <div key={item.id} className="bg-plenful-gray-50 rounded-lg p-3 border-l-2 border-plenful-teal/30">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-plenful-gray-700">{item.type}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          item.relevance === "strong" ? "bg-green-50 text-green-700" :
+                          item.relevance === "moderate" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
+                        }`}>{item.relevance}</span>
+                        <span className="text-xs text-plenful-gray-400">{item.source} &middot; {item.date}</span>
+                      </div>
+                      <p className="text-xs text-plenful-gray-600 leading-relaxed">{item.excerpt}</p>
                     </div>
-                    {state.status === "overridden" && state.answer !== q.aiAnswer && (
-                      <span className="text-xs text-amber-600 italic">
-                        (AI said {q.aiAnswer === "yes" ? "Yes" : "No"} — analyst overrode)
-                      </span>
-                    )}
+                  ))}
+                </div>
+
+                {/* AI Recommendation — answer + confidence + reasoning merged */}
+                {!isOverriding && (
+                  <div className="mb-3 rounded-xl border border-plenful-gray-200/60 overflow-hidden">
+                    <div className="bg-plenful-gray-50/80 px-4 py-2.5 flex items-center justify-between border-b border-plenful-gray-200/40">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5 text-plenful-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        <span className="text-xs font-medium text-plenful-gray-400 uppercase tracking-wider">AI Recommendation</span>
+                      </div>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        q.confidence >= 90
+                          ? "bg-gradient-to-r from-plenful-magenta/10 to-pink-50 text-plenful-magenta border border-plenful-magenta/20"
+                          : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border border-amber-200"
+                      }`}>
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                        </svg>
+                        {q.confidence}%
+                      </div>
+                    </div>
+                    <div className="px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold flex-shrink-0 ${
+                          q.aiAnswer === "yes" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}>
+                          {q.aiAnswer === "yes" ? "Yes" : "No"}
+                        </span>
+                        <p className="text-sm text-plenful-gray-600 leading-relaxed">{q.rationale}</p>
+                      </div>
+                      {state.status === "overridden" && state.answer !== q.aiAnswer && (
+                        <div className="mt-3 pt-2.5 border-t border-plenful-gray-200/40">
+                          <span className="text-xs text-amber-600 font-medium italic">
+                            Analyst overrode to &ldquo;{state.answer === "yes" ? "Yes" : "No"}&rdquo;
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="mb-4 p-3 bg-amber-50/50 border border-amber-200/50 rounded-lg">
+                )}
+
+                {/* Override Mode */}
+                {isOverriding && (
+                  <div className="mb-3 p-4 bg-amber-50/50 border border-amber-200/50 rounded-xl">
                     <p className="text-xs font-medium text-amber-700 mb-2">Override AI Answer</p>
                     <div className="flex items-center gap-4 mb-3">
                       <label className="flex items-center gap-2 cursor-pointer" onClick={() => setTempAnswer("yes")}>
@@ -410,32 +440,6 @@ export default function ReviewPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Evidence Excerpts (inline by default) */}
-                <div className="space-y-2 mb-3">
-                  {relatedEvidence.map((item) => (
-                    <div key={item.id} className="bg-plenful-gray-50 rounded-lg p-3 border-l-2 border-plenful-teal/30">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-plenful-gray-700">{item.type}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          item.relevance === "strong" ? "bg-green-50 text-green-700" :
-                          item.relevance === "moderate" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
-                        }`}>{item.relevance}</span>
-                        <span className="text-xs text-plenful-gray-400">{item.source} &middot; {item.date}</span>
-                      </div>
-                      <p className="text-xs text-plenful-gray-600 leading-relaxed">{item.excerpt}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* AI Reasoning */}
-                <div className="mb-3 bg-plenful-gray-50/70 rounded-lg p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <svg className="w-3.5 h-3.5 text-plenful-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                    <span className="text-xs font-medium text-plenful-gray-400 uppercase tracking-wider">AI Reasoning</span>
-                  </div>
-                  <p className="text-sm text-plenful-gray-500 leading-relaxed">{q.rationale}</p>
-                </div>
 
                 {/* Override Note */}
                 {state.status === "overridden" && state.overrideNote && !isOverriding && (
