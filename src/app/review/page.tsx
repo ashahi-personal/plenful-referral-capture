@@ -26,10 +26,6 @@ const clinicalQuestions = [
     confidence: 96,
     aiAnswer: "yes",
     rationale: "EHR contains outgoing referral order dated 08/15/2025 from Dr. Chen to Dr. Park (Rheumatology) for evaluation of moderate-to-severe rheumatoid arthritis with biologic therapy consideration.",
-    sources: [
-      { label: "EHR Referral Order (08/15/25)", link: "#" },
-      { label: "Clinician Progress Note (08/12/25)", link: "#" },
-    ],
     evidenceIds: ["e1", "e2"],
   },
   {
@@ -38,10 +34,6 @@ const clinicalQuestions = [
     confidence: 92,
     aiAnswer: "yes",
     rationale: "Dr. Park's consult note documents evaluation of patient for rheumatoid arthritis management. Notes indicate 'patient referred by Dr. Chen for biologic therapy evaluation' and recommends Humira initiation given inadequate response to methotrexate.",
-    sources: [
-      { label: "Specialist Consult Note (09/02/25)", link: "#" },
-      { label: "EHR Medication History", link: "#" },
-    ],
     evidenceIds: ["e3"],
   },
   {
@@ -50,10 +42,6 @@ const clinicalQuestions = [
     confidence: 99,
     aiAnswer: "yes",
     rationale: "Humira (adalimumab) is a standard biologic treatment for moderate-to-severe rheumatoid arthritis. Rheumatology specialist prescribing pattern is consistent with referral indication.",
-    sources: [
-      { label: "Prescription Record (09/10/25)", link: "#" },
-      { label: "Drug Formulary Reference", link: "#" },
-    ],
     evidenceIds: ["e3"],
   },
   {
@@ -62,10 +50,6 @@ const clinicalQuestions = [
     confidence: 88,
     aiAnswer: "yes",
     rationale: "Referral order dated 08/15/2025, specialist consult on 09/02/2025, and Humira prescription initiated 09/10/2025. All events fall within a continuous 26-day care episode. Prescription follows directly from specialist recommendation documented in consult note.",
-    sources: [
-      { label: "Referral Order (08/15/25)", link: "#" },
-      { label: "Prescription Record (09/10/25)", link: "#" },
-    ],
     evidenceIds: ["e2", "e4"],
   },
 ];
@@ -119,8 +103,7 @@ export default function ReviewPage() {
   const [tempAnswer, setTempAnswer] = useState<string>("");
   const [tempNote, setTempNote] = useState<string>("");
   const [analystNotes, setAnalystNotes] = useState("");
-  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
-  const [showAllEvidence, setShowAllEvidence] = useState(false);
+  const [expandedRationale, setExpandedRationale] = useState<Set<string>>(new Set());
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [activeModal, setActiveModal] = useState<"evidence" | "audit" | null>(null);
   const [isSticky, setIsSticky] = useState(false);
@@ -171,8 +154,8 @@ export default function ReviewPage() {
     setOverridingQuestion(null);
   };
 
-  const toggleEvidence = (qId: string) => {
-    setExpandedEvidence(prev => {
+  const toggleRationale = (qId: string) => {
+    setExpandedRationale(prev => {
       const next = new Set(prev);
       if (next.has(qId)) next.delete(qId); else next.add(qId);
       return next;
@@ -272,7 +255,7 @@ export default function ReviewPage() {
               <p className="text-xs text-plenful-gray-500">MRN-889421</p>
             </div>
             <div>
-              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Referring Provider</p>
+              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Referred By</p>
               <p className="text-sm font-medium text-plenful-gray-800">Dr. James Chen</p>
               <p className="text-xs text-plenful-gray-500">NPI 1891734562</p>
             </div>
@@ -329,7 +312,7 @@ export default function ReviewPage() {
             const state = questionStates[q.id];
             const isOverriding = overridingQuestion === q.id;
             const relatedEvidence = getEvidenceForQuestion(q.evidenceIds);
-            const isEvidenceExpanded = expandedEvidence.has(q.id);
+            const isRationaleExpanded = expandedRationale.has(q.id);
 
             return (
               <div
@@ -438,48 +421,43 @@ export default function ReviewPage() {
                   </div>
                 )}
 
-                {/* Rationale */}
-                <p className="text-sm text-plenful-gray-600 leading-relaxed mb-3">{q.rationale}</p>
+                {/* Evidence Excerpts (inline by default) */}
+                <div className="space-y-2 mb-3">
+                  {relatedEvidence.map((item) => (
+                    <div key={item.id} className="bg-plenful-gray-50 rounded-lg p-3 border-l-2 border-plenful-teal/30">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-plenful-gray-700">{item.type}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          item.relevance === "strong" ? "bg-green-50 text-green-700" :
+                          item.relevance === "moderate" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
+                        }`}>{item.relevance}</span>
+                        <span className="text-xs text-plenful-gray-400">{item.source} &middot; {item.date}</span>
+                      </div>
+                      <p className="text-xs text-plenful-gray-600 leading-relaxed">{item.excerpt}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* AI Reasoning (collapsible) */}
+                <button
+                  onClick={() => toggleRationale(q.id)}
+                  className="flex items-center gap-1.5 text-xs text-plenful-gray-400 hover:text-plenful-gray-600 transition-colors mb-2"
+                >
+                  <svg className={`w-3 h-3 transition-transform ${isRationaleExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                  AI reasoning
+                </button>
+                {isRationaleExpanded && (
+                  <div className="mb-3 pl-3 border-l-2 border-plenful-gray-200">
+                    <p className="text-sm text-plenful-gray-500 leading-relaxed">{q.rationale}</p>
+                  </div>
+                )}
 
                 {/* Override Note */}
                 {state.status === "overridden" && state.overrideNote && !isOverriding && (
                   <div className="mb-3 p-2.5 bg-amber-50 border border-amber-200/50 rounded-lg">
                     <p className="text-xs font-medium text-amber-700 mb-0.5">Analyst Override Note</p>
                     <p className="text-xs text-amber-600">{state.overrideNote}</p>
-                  </div>
-                )}
-
-                {/* Sources + Evidence Toggle */}
-                <div className="flex items-center gap-1 flex-wrap mb-1">
-                  <span className="text-xs text-plenful-gray-400 mr-1">
-                    <svg className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    Sources:
-                  </span>
-                  {q.sources.map((src, i) => (
-                    <a key={i} href={src.link} className="text-xs text-plenful-teal hover:underline">[{i + 1}] {src.label}</a>
-                  ))}
-                  <button onClick={() => toggleEvidence(q.id)} className="ml-2 text-xs text-plenful-teal hover:underline flex items-center gap-0.5">
-                    <svg className={`w-3 h-3 transition-transform ${isEvidenceExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                    {isEvidenceExpanded ? "Hide" : "View"} evidence
-                  </button>
-                </div>
-
-                {/* Inline Evidence */}
-                {isEvidenceExpanded && (
-                  <div className="mt-3 mb-1 space-y-2 pl-3 border-l-2 border-plenful-teal/20">
-                    {relatedEvidence.map((item) => (
-                      <div key={item.id} className="bg-plenful-gray-50 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium text-plenful-gray-700">{item.type}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            item.relevance === "strong" ? "bg-green-50 text-green-700" :
-                            item.relevance === "moderate" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
-                          }`}>{item.relevance}</span>
-                        </div>
-                        <p className="text-xs text-plenful-gray-400 mb-1">{item.source} &middot; {item.date}</p>
-                        <p className="text-xs text-plenful-gray-600 leading-relaxed">{item.excerpt}</p>
-                      </div>
-                    ))}
                   </div>
                 )}
 
