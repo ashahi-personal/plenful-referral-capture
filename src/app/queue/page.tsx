@@ -26,7 +26,7 @@ export default function QueuePage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const router = useRouter();
   const [dateFilter, setDateFilter] = useState<DateFilter>("all_pending");
-  const [drugFilter, setDrugFilter] = useState<string>("all");
+
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -64,8 +64,7 @@ export default function QueuePage() {
         c.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.drug.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.specialist.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDrug = drugFilter === "all" || c.drug === drugFilter;
-      return matchesTab && matchesSearch && matchesDrug;
+      return matchesTab && matchesSearch;
     });
 
     if (sortColumn) {
@@ -93,7 +92,7 @@ export default function QueuePage() {
     }
 
     return result;
-  }, [activeTab, searchQuery, sortColumn, sortDirection, dateFilteredClaims, drugFilter]);
+  }, [activeTab, searchQuery, sortColumn, sortDirection, dateFilteredClaims]);
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "all", label: "All", count: dateFilteredClaims.length },
@@ -274,16 +273,6 @@ export default function QueuePage() {
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={drugFilter}
-                    onChange={(e) => setDrugFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent text-plenful-gray-700"
-                  >
-                    <option value="all">All drugs</option>
-                    {[...new Set(CLAIMS.map(c => c.drug))].sort().map(drug => (
-                      <option key={drug} value={drug}>{drug.split(" (")[0]}</option>
-                    ))}
-                  </select>
                   <div className="relative">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-plenful-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
