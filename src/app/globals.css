@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+
+:root {
+  --background: #ffffff;
+  --foreground: #1a1a2e;
+  --plenful-teal: #00A393;
+  --plenful-teal-dark: #007A6E;
+  --plenful-teal-light: #E6F7F5;
+  --plenful-magenta: #8C2061;
+  --plenful-magenta-dark: #760D4C;
+  --plenful-dark: #0F2D2D;
+  --plenful-gray-50: #F9FAFB;
+  --plenful-gray-100: #F3F4F6;
+  --plenful-gray-200: #E5E7EB;
+  --plenful-gray-300: #D1D5DB;
+  --plenful-gray-400: #9CA3AF;
+  --plenful-gray-500: #6B7280;
+  --plenful-gray-600: #475467;
+  --plenful-gray-700: #374151;
+  --plenful-gray-800: #1F2937;
+  --plenful-gray-900: #111827;
+  --plenful-blue: #3B82F6;
+  --plenful-orange: #F59E0B;
+  --plenful-pink: #EC4899;
+  --plenful-purple: #8B5CF6;
+  --plenful-green: #10B981;
+  --plenful-red: #EF4444;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-plenful-teal: var(--plenful-teal);
+  --color-plenful-teal-dark: var(--plenful-teal-dark);
+  --color-plenful-teal-light: var(--plenful-teal-light);
+  --color-plenful-magenta: var(--plenful-magenta);
+  --color-plenful-magenta-dark: var(--plenful-magenta-dark);
+  --color-plenful-dark: var(--plenful-dark);
+  --color-plenful-gray-50: var(--plenful-gray-50);
+  --color-plenful-gray-100: var(--plenful-gray-100);
+  --color-plenful-gray-200: var(--plenful-gray-200);
+  --color-plenful-gray-300: var(--plenful-gray-300);
+  --color-plenful-gray-400: var(--plenful-gray-400);
+  --color-plenful-gray-500: var(--plenful-gray-500);
+  --color-plenful-gray-600: var(--plenful-gray-600);
+  --color-plenful-gray-700: var(--plenful-gray-700);
+  --color-plenful-gray-800: var(--plenful-gray-800);
+  --color-plenful-gray-900: var(--plenful-gray-900);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
