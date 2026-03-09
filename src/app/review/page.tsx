@@ -103,7 +103,6 @@ export default function ReviewPage() {
   const [tempAnswer, setTempAnswer] = useState<string>("");
   const [tempNote, setTempNote] = useState<string>("");
   const [analystNotes, setAnalystNotes] = useState("");
-  const [expandedRationale, setExpandedRationale] = useState<Set<string>>(new Set());
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [activeModal, setActiveModal] = useState<"evidence" | "audit" | null>(null);
   const [isSticky, setIsSticky] = useState(false);
@@ -152,14 +151,6 @@ export default function ReviewPage() {
       [qId]: { status: "pending", answer: q?.aiAnswer || "yes", overrideNote: "" }
     }));
     setOverridingQuestion(null);
-  };
-
-  const toggleRationale = (qId: string) => {
-    setExpandedRationale(prev => {
-      const next = new Set(prev);
-      if (next.has(qId)) next.delete(qId); else next.add(qId);
-      return next;
-    });
   };
 
   const getEvidenceForQuestion = (ids: string[]) => evidenceItems.filter(e => ids.includes(e.id));
@@ -312,7 +303,6 @@ export default function ReviewPage() {
             const state = questionStates[q.id];
             const isOverriding = overridingQuestion === q.id;
             const relatedEvidence = getEvidenceForQuestion(q.evidenceIds);
-            const isRationaleExpanded = expandedRationale.has(q.id);
 
             return (
               <div
@@ -438,20 +428,11 @@ export default function ReviewPage() {
                   ))}
                 </div>
 
-                {/* AI Reasoning (collapsible) */}
-                <button
-                  onClick={() => toggleRationale(q.id)}
-                  className="flex items-center gap-1.5 text-xs text-plenful-gray-400 hover:text-plenful-gray-600 transition-colors mb-2"
-                >
-                  <svg className={`w-3 h-3 transition-transform ${isRationaleExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                  AI reasoning
-                </button>
-                {isRationaleExpanded && (
-                  <div className="mb-3 pl-3 border-l-2 border-plenful-gray-200">
-                    <p className="text-sm text-plenful-gray-500 leading-relaxed">{q.rationale}</p>
-                  </div>
-                )}
+                {/* AI Reasoning */}
+                <div className="mb-3 flex items-start gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-plenful-gray-300 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                  <p className="text-sm text-plenful-gray-500 leading-relaxed">{q.rationale}</p>
+                </div>
 
                 {/* Override Note */}
                 {state.status === "overridden" && state.overrideNote && !isOverriding && (
@@ -462,8 +443,7 @@ export default function ReviewPage() {
                 )}
 
                 {/* Action Footer */}
-                <div className="mt-4 pt-4 border-t border-plenful-gray-100 flex items-center justify-between">
-                  <p className="text-xs text-plenful-gray-400 italic">Plenful AI can make mistakes. Review outputs carefully.</p>
+                <div className="mt-4 pt-4 border-t border-plenful-gray-100 flex items-center justify-end">
                   {state.status === "pending" && !isOverriding ? (
                     <div className="flex gap-2">
                       <button
@@ -487,6 +467,9 @@ export default function ReviewPage() {
             );
           })}
         </div>
+
+        {/* AI Disclaimer */}
+        <p className="text-xs text-plenful-gray-400 italic text-center mb-6">Plenful AI can make mistakes. Review all evidence and reasoning carefully before making a decision.</p>
 
         {/* Analyst Decision Panel */}
         {approvalStatus === "none" ? (

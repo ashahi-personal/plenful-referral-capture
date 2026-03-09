@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function Navbar() {
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [claimSelection, setClaimSelection] = useState<"all" | "upload" | "manual">("all");
 
   return (
     <>
@@ -63,22 +64,42 @@ export default function Navbar() {
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-xs font-medium text-plenful-gray-500 uppercase tracking-wider mb-1.5">Report period</label>
-                <select className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent">
-                  <option>Last 6 months (Oct 2025 – Mar 2026)</option>
-                  <option>Q1 2026 (Jan – Mar)</option>
-                  <option>Q4 2025 (Oct – Dec)</option>
-                  <option>Custom range...</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-xs font-medium text-plenful-gray-500 uppercase tracking-wider mb-1.5">Claim selection</label>
-                <select className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent">
-                  <option>All approved referral claims (142)</option>
-                  <option>Upload HRSA sample list (.csv)</option>
-                  <option>Manually select claims</option>
+                <select
+                  value={claimSelection}
+                  onChange={(e) => setClaimSelection(e.target.value as "all" | "upload" | "manual")}
+                  className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent"
+                >
+                  <option value="all">All approved referral claims (142)</option>
+                  <option value="upload">Upload HRSA sample list (.csv)</option>
+                  <option value="manual">Manually select claims</option>
                 </select>
               </div>
+
+              {/* Upload zone — only when uploading a sample list */}
+              {claimSelection === "upload" && (
+                <div className="border-2 border-dashed border-plenful-gray-200 rounded-xl p-6 text-center hover:border-plenful-teal/40 hover:bg-plenful-teal-light/20 transition-colors cursor-pointer">
+                  <svg className="w-8 h-8 mx-auto mb-2 text-plenful-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <p className="text-sm font-medium text-plenful-gray-600 mb-0.5">Drop your HRSA sample list here</p>
+                  <p className="text-xs text-plenful-gray-400">or click to browse &middot; .csv format</p>
+                </div>
+              )}
+
+              {/* Report period — only when NOT uploading (date range is implicit in the CSV) */}
+              {claimSelection !== "upload" && (
+                <div>
+                  <label className="block text-xs font-medium text-plenful-gray-500 uppercase tracking-wider mb-1.5">Report period</label>
+                  <select className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent">
+                    <option>Last 6 months (Oct 2025 – Mar 2026)</option>
+                    <option>Q1 2026 (Jan – Mar)</option>
+                    <option>Q4 2025 (Oct – Dec)</option>
+                    <option>Custom range...</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-plenful-gray-500 uppercase tracking-wider mb-1.5">Include in report</label>
                 <div className="space-y-2">
