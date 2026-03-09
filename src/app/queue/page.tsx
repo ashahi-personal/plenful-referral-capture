@@ -330,7 +330,7 @@ export default function QueuePage() {
                 </thead>
                 <tbody>
                   {filteredAndSortedClaims.map((claim) => (
-                    <tr key={claim.id} onClick={() => router.push("/review")} className="border-b border-plenful-gray-50 hover:bg-plenful-gray-50/50 cursor-pointer transition-colors">
+                    <tr key={claim.id} onClick={() => router.push(`/review?id=${claim.id}`)} className="border-b border-plenful-gray-50 hover:bg-plenful-gray-50/50 cursor-pointer transition-colors">
                       <td className="px-5 py-3.5">
                         <span className="text-sm font-medium text-plenful-teal-dark">{claim.id}</span>
                         <p className="text-xs text-plenful-gray-400 mt-0.5">{claim.date}</p>
@@ -370,7 +370,7 @@ export default function QueuePage() {
                           {claim.confidence < 80 && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Low conf.</span>
                           )}
-                          {claim.evidence.includes("missing") && (
+                          {(claim.evidence.toLowerCase().includes("awaiting") || claim.evidence.toLowerCase().includes("no specialist") || claim.evidence.toLowerCase().includes("missing")) && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">Doc needed</span>
                           )}
                         </div>
