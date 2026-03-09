@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function Navbar() {
   const [showAuditModal, setShowAuditModal] = useState(false);
-  const [claimSelection, setClaimSelection] = useState<"all" | "upload" | "manual">("all");
+  const [claimSelection, setClaimSelection] = useState<"all" | "upload">("all");
 
   return (
     <>
@@ -67,12 +67,11 @@ export default function Navbar() {
                 <label className="block text-xs font-medium text-plenful-gray-500 uppercase tracking-wider mb-1.5">Claim selection</label>
                 <select
                   value={claimSelection}
-                  onChange={(e) => setClaimSelection(e.target.value as "all" | "upload" | "manual")}
+                  onChange={(e) => setClaimSelection(e.target.value as "all" | "upload")}
                   className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent"
                 >
                   <option value="all">All approved referral claims (142)</option>
                   <option value="upload">Upload HRSA sample list (.csv)</option>
-                  <option value="manual">Manually select claims</option>
                 </select>
               </div>
 
