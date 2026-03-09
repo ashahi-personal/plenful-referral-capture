@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import Link from "next/link";
 
 const CLAIMS = [
   { id: "RC-2026-04821", mrn: "MRN-889421", patient: "Maria S.", prescriber: "Dr. James Chen, NPI 1891734562", specialist: "Dr. Lisa Park — Rheumatology", drug: "Humira (adalimumab)", confidence: 96, status: "pending", priority: "high", evidence: "Outgoing referral order + specialist consult note found", date: "2026-03-08", savings: 28400 },
@@ -23,6 +23,7 @@ export default function QueuePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const router = useRouter();
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -275,9 +276,9 @@ export default function QueuePage() {
                 </thead>
                 <tbody>
                   {filteredAndSortedClaims.map((claim) => (
-                    <tr key={claim.id} className="border-b border-plenful-gray-50 hover:bg-plenful-gray-50/50 cursor-pointer transition-colors">
+                    <tr key={claim.id} onClick={() => router.push("/review")} className="border-b border-plenful-gray-50 hover:bg-plenful-gray-50/50 cursor-pointer transition-colors">
                       <td className="px-5 py-3.5">
-                        <Link href="/review" className="text-sm font-medium text-plenful-teal-dark hover:underline">{claim.id}</Link>
+                        <span className="text-sm font-medium text-plenful-teal-dark">{claim.id}</span>
                         <p className="text-xs text-plenful-gray-400 mt-0.5">{claim.date}</p>
                       </td>
                       <td className="px-5 py-3.5">
