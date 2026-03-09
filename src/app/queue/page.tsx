@@ -17,6 +17,7 @@ const CLAIMS = [
 type TabKey = "all" | "pending" | "flagged" | "approved";
 type SortColumn = "confidence" | "date" | "savings" | null;
 type SortDirection = "asc" | "desc";
+type DateFilter = "all_pending" | "today" | "last_7" | "last_30";
 
 export default function QueuePage() {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -24,6 +25,7 @@ export default function QueuePage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const router = useRouter();
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all_pending");
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -34,8 +36,27 @@ export default function QueuePage() {
     }
   };
 
+  const dateFilteredClaims = useMemo(() => {
+    if (dateFilter === "all_pending") return CLAIMS.filter(c => c.status !== "approved");
+    if (dateFilter === "today") return CLAIMS.filter(c => c.date === "2026-03-08");
+    return CLAIMS;
+  }, [dateFilter]);
+
+  const barStats = useMemo(() => {
+    switch (dateFilter) {
+      case "all_pending":
+        return { label: "50 referrals processed today", total: 50, auto: 20, reviewed: 22, awaiting: 8 };
+      case "today":
+        return { label: "50 referrals processed today", total: 50, auto: 20, reviewed: 22, awaiting: 8 };
+      case "last_7":
+        return { label: "312 referrals this week", total: 312, auto: 140, reviewed: 152, awaiting: 20 };
+      case "last_30":
+        return { label: "1,247 referrals this month", total: 1247, auto: 580, reviewed: 612, awaiting: 55 };
+    }
+  }, [dateFilter]);
+
   const filteredAndSortedClaims = useMemo(() => {
-    let result = CLAIMS.filter((c) => {
+    let result = dateFilteredClaims.filter((c) => {
       const matchesTab = activeTab === "all" || c.status === activeTab;
       const matchesSearch = searchQuery === "" ||
         c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -64,13 +85,13 @@ export default function QueuePage() {
     }
 
     return result;
-  }, [activeTab, searchQuery, sortColumn, sortDirection]);
+  }, [activeTab, searchQuery, sortColumn, sortDirection, dateFilteredClaims]);
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "all", label: "All", count: CLAIMS.length },
-    { key: "pending", label: "Pending Review", count: CLAIMS.filter(c => c.status === "pending").length },
-    { key: "flagged", label: "Flagged", count: CLAIMS.filter(c => c.status === "flagged").length },
-    { key: "approved", label: "Approved", count: CLAIMS.filter(c => c.status === "approved").length },
+    { key: "all", label: "All", count: dateFilteredClaims.length },
+    { key: "pending", label: "Pending Review", count: dateFilteredClaims.filter(c => c.status === "pending").length },
+    { key: "flagged", label: "Flagged", count: dateFilteredClaims.filter(c => c.status === "flagged").length },
+    { key: "approved", label: "Approved", count: dateFilteredClaims.filter(c => c.status === "approved").length },
   ];
 
   const totalSavings = CLAIMS.reduce((sum, c) => sum + c.savings, 0);
@@ -168,35 +189,58 @@ export default function QueuePage() {
 
         {/* Claims Table */}
         <div>
-          {/* Horizontal Processing Bar */}
+          {/* Horizontal Processing Bar with Date Chips */}
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-4 mb-4">
             <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-plenful-gray-700">50 referrals processed today</span>
-                <span className="text-xs text-plenful-gray-400">&middot; {CLAIMS.length} awaiting analyst review</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 bg-plenful-gray-50 rounded-lg p-0.5">
+                  {(["all_pending", "today", "last_7", "last_30"] as DateFilter[]).map((filter) => {
+                    const labels: Record<DateFilter, string> = {
+                      all_pending: "All pending",
+                      today: "Today",
+                      last_7: "Last 7 days",
+                      last_30: "Last 30 days",
+                    };
+                    return (
+                      <button
+                        key={filter}
+                        onClick={() => setDateFilter(filter)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                          dateFilter === filter
+                            ? "bg-white text-plenful-dark shadow-sm border border-plenful-gray-200"
+                            : "text-plenful-gray-500 hover:text-plenful-gray-700"
+                        }`}
+                      >
+                        {labels[filter]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="text-sm font-medium text-plenful-gray-700">{barStats.label}</span>
+                <span className="text-xs text-plenful-gray-400">&middot; {dateFilteredClaims.length} surfaced for review</span>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[#0F766E]" />
                   <span className="text-plenful-gray-500">Auto-approved</span>
-                  <span className="font-medium text-plenful-gray-700">20</span>
+                  <span className="font-medium text-plenful-gray-700">{barStats.auto}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[#5EEAD4]" />
                   <span className="text-plenful-gray-500">Analyst reviewed</span>
-                  <span className="font-medium text-plenful-gray-700">22</span>
+                  <span className="font-medium text-plenful-gray-700">{barStats.reviewed}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
                   <span className="text-plenful-gray-500">Awaiting review</span>
-                  <span className="font-medium text-plenful-gray-700">8</span>
+                  <span className="font-medium text-plenful-gray-700">{barStats.awaiting}</span>
                 </div>
               </div>
             </div>
             <div className="flex h-2 rounded-full overflow-hidden bg-plenful-gray-100">
-              <div className="bg-[#0F766E] rounded-l-full" style={{ width: `${(20/50)*100}%` }} />
-              <div className="bg-[#5EEAD4]" style={{ width: `${(22/50)*100}%` }} />
-              <div className="bg-[#F59E0B] rounded-r-full" style={{ width: `${(8/50)*100}%` }} />
+              <div className="bg-[#0F766E] rounded-l-full" style={{ width: `${(barStats.auto / barStats.total) * 100}%` }} />
+              <div className="bg-[#5EEAD4]" style={{ width: `${(barStats.reviewed / barStats.total) * 100}%` }} />
+              <div className="bg-[#F59E0B] rounded-r-full" style={{ width: `${(barStats.awaiting / barStats.total) * 100}%` }} />
             </div>
           </div>
 
