@@ -265,7 +265,7 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mt-6 pt-6 border-t border-plenful-gray-100">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mt-6 pt-6 border-t border-plenful-gray-100 items-start">
             <div>
               <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Patient</p>
               <p className="text-sm font-medium text-plenful-gray-800">Maria S.</p>
@@ -277,7 +277,7 @@ export default function ReviewPage() {
               <p className="text-xs text-plenful-gray-500">NPI 1891734562</p>
             </div>
             <div>
-              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Prescribing Specialist</p>
+              <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Specialist</p>
               <p className="text-sm font-medium text-plenful-gray-800">Dr. Lisa Park</p>
               <p className="text-xs text-plenful-gray-500">Rheumatology</p>
             </div>
