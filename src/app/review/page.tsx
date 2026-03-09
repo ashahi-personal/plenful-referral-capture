@@ -122,6 +122,7 @@ export default function ReviewPage() {
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [activeModal, setActiveModal] = useState<"evidence" | "audit" | null>(null);
   const [isSticky, setIsSticky] = useState(false);
 
   const overallConfidence = 96;
@@ -239,12 +240,30 @@ export default function ReviewPage() {
               </div>
               <p className="text-sm text-plenful-gray-500">Identified on March 8, 2026 &middot; AI Pipeline Stage 3 complete</p>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-plenful-magenta/10 to-pink-50 rounded-xl border border-plenful-magenta/20">
-              <svg className="w-5 h-5 text-plenful-magenta" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-              </svg>
-              <span className="text-lg font-bold text-plenful-magenta">{overallConfidence}%</span>
-              <span className="text-xs text-plenful-magenta/70">Confidence</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setActiveModal("evidence")}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-plenful-gray-600 bg-plenful-gray-50 border border-plenful-gray-200 rounded-lg hover:bg-plenful-gray-100 hover:text-plenful-gray-800 transition-colors"
+                title="View full evidence chain"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Evidence
+              </button>
+              <button
+                onClick={() => setActiveModal("audit")}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-plenful-gray-600 bg-plenful-gray-50 border border-plenful-gray-200 rounded-lg hover:bg-plenful-gray-100 hover:text-plenful-gray-800 transition-colors"
+                title="View processing audit trail"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Audit Trail
+              </button>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-plenful-magenta/10 to-pink-50 rounded-xl border border-plenful-magenta/20">
+                <svg className="w-5 h-5 text-plenful-magenta" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                </svg>
+                <span className="text-lg font-bold text-plenful-magenta">{overallConfidence}%</span>
+                <span className="text-xs text-plenful-magenta/70">Confidence</span>
+              </div>
             </div>
           </div>
 
@@ -595,14 +614,24 @@ export default function ReviewPage() {
           </div>
         )}
 
-        {/* Collapsible Full Evidence Chain */}
-        <div className="mb-6">
-          <button onClick={() => setShowAllEvidence(!showAllEvidence)} className="flex items-center gap-2 text-sm font-medium text-plenful-gray-600 hover:text-plenful-gray-800 mb-2">
-            <svg className={`w-4 h-4 transition-transform ${showAllEvidence ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            Full Evidence Chain ({evidenceItems.length} documents)
-          </button>
-          {showAllEvidence && (
-            <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
+      </div>
+
+      {/* Evidence Chain Modal */}
+      {activeModal === "evidence" && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setActiveModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[640px] max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-plenful-gray-200">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-plenful-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <h3 className="text-base font-semibold text-plenful-dark">Evidence Chain</h3>
+                <span className="text-xs text-plenful-gray-400 bg-plenful-gray-100 px-2 py-0.5 rounded-full">{evidenceItems.length} documents</span>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="p-1.5 rounded-lg text-plenful-gray-400 hover:text-plenful-gray-600 hover:bg-plenful-gray-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-6">
               <div className="space-y-4">
                 {evidenceItems.map((item, index) => (
                   <div key={item.id} className="relative">
@@ -632,18 +661,26 @@ export default function ReviewPage() {
                 ))}
               </div>
             </div>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* Collapsible Audit Trail */}
-        <div className="mb-6">
-          <button onClick={() => setShowAuditTrail(!showAuditTrail)} className="flex items-center gap-2 text-sm font-medium text-plenful-gray-600 hover:text-plenful-gray-800 mb-2">
-            <svg className={`w-4 h-4 transition-transform ${showAuditTrail ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            Processing Audit Trail
-          </button>
-          {showAuditTrail && (
-            <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-              <div className="space-y-3">
+      {/* Audit Trail Modal */}
+      {activeModal === "audit" && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setActiveModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[520px] max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-plenful-gray-200">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-plenful-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <h3 className="text-base font-semibold text-plenful-dark">Processing Audit Trail</h3>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="p-1.5 rounded-lg text-plenful-gray-400 hover:text-plenful-gray-600 hover:bg-plenful-gray-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-6">
+              <div className="space-y-4">
                 {[
                   { stage: "Stage 1: Ingest", status: "complete", time: "Mar 8, 10:02 AM", detail: "TPA claims + EHR encounters normalized" },
                   { stage: "Stage 2: Identify", status: "complete", time: "Mar 8, 10:03 AM", detail: "NPI mismatch flagged — external specialist" },
@@ -662,16 +699,16 @@ export default function ReviewPage() {
                       )}
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-plenful-gray-700">{step.stage}</p>
+                      <p className="text-sm font-medium text-plenful-gray-700">{step.stage}</p>
                       <p className="text-xs text-plenful-gray-400">{step.time} — {step.detail}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
