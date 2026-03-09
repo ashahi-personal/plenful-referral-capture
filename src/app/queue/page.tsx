@@ -172,31 +172,31 @@ export default function QueuePage() {
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-4 mb-4">
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-plenful-gray-700">324 claims processed today</span>
-                <span className="text-xs text-plenful-gray-400">&middot; {CLAIMS.length} surfaced for manual review</span>
+                <span className="text-sm font-medium text-plenful-gray-700">50 referrals processed today</span>
+                <span className="text-xs text-plenful-gray-400">&middot; {CLAIMS.length} awaiting analyst review</span>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[#0F766E]" />
-                  <span className="text-plenful-gray-500">Auto reviewed</span>
-                  <span className="font-medium text-plenful-gray-700">295</span>
+                  <span className="text-plenful-gray-500">Auto-approved</span>
+                  <span className="font-medium text-plenful-gray-700">20</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[#5EEAD4]" />
-                  <span className="text-plenful-gray-500">Manual</span>
-                  <span className="font-medium text-plenful-gray-700">13</span>
+                  <span className="text-plenful-gray-500">Analyst reviewed</span>
+                  <span className="font-medium text-plenful-gray-700">22</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                  <span className="text-plenful-gray-500">Pending</span>
-                  <span className="font-medium text-plenful-gray-700">16</span>
+                  <span className="text-plenful-gray-500">Awaiting review</span>
+                  <span className="font-medium text-plenful-gray-700">8</span>
                 </div>
               </div>
             </div>
             <div className="flex h-2 rounded-full overflow-hidden bg-plenful-gray-100">
-              <div className="bg-[#0F766E] rounded-l-full" style={{ width: `${(295/324)*100}%` }} />
-              <div className="bg-[#5EEAD4]" style={{ width: `${(13/324)*100}%` }} />
-              <div className="bg-[#F59E0B] rounded-r-full" style={{ width: `${(16/324)*100}%` }} />
+              <div className="bg-[#0F766E] rounded-l-full" style={{ width: `${(20/50)*100}%` }} />
+              <div className="bg-[#5EEAD4]" style={{ width: `${(22/50)*100}%` }} />
+              <div className="bg-[#F59E0B] rounded-r-full" style={{ width: `${(8/50)*100}%` }} />
             </div>
           </div>
 
