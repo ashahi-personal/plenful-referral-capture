@@ -166,55 +166,41 @@ export default function QueuePage() {
           </div>
         </div>
 
-        {/* Donut Chart + Table Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Donut Chart Card */}
-          <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-            <h3 className="text-sm font-medium text-plenful-gray-700 mb-1">Claims processed today</h3>
-            <p className="text-xs text-plenful-gray-400 mb-4">{CLAIMS.length} surfaced for manual review</p>
-            <div className="flex justify-center mb-4">
-              <svg width="140" height="140" viewBox="0 0 140 140">
-                <circle cx="70" cy="70" r="55" fill="none" stroke="#E5E7EB" strokeWidth="18" />
-                <circle cx="70" cy="70" r="55" fill="none" stroke="#0F766E" strokeWidth="18"
-                  strokeDasharray={`${0.91 * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
-                  strokeDashoffset="0" transform="rotate(-90 70 70)" strokeLinecap="round" />
-                <circle cx="70" cy="70" r="55" fill="none" stroke="#5EEAD4" strokeWidth="18"
-                  strokeDasharray={`${0.04 * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
-                  strokeDashoffset={`${-0.91 * 2 * Math.PI * 55}`} transform="rotate(-90 70 70)" strokeLinecap="round" />
-                <circle cx="70" cy="70" r="55" fill="none" stroke="#F59E0B" strokeWidth="18"
-                  strokeDasharray={`${0.05 * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
-                  strokeDashoffset={`${-0.95 * 2 * Math.PI * 55}`} transform="rotate(-90 70 70)" strokeLinecap="round" />
-                <text x="70" y="66" textAnchor="middle" className="text-2xl font-semibold" fill="#0F2D2D" fontSize="24" fontWeight="600">324</text>
-                <text x="70" y="84" textAnchor="middle" fill="#6B7280" fontSize="11">total</text>
-              </svg>
+        {/* Claims Table */}
+        <div>
+          {/* Horizontal Processing Bar */}
+          <div className="bg-white rounded-xl border border-plenful-gray-200 p-4 mb-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-plenful-gray-700">324 claims processed today</span>
+                <span className="text-xs text-plenful-gray-400">&middot; {CLAIMS.length} surfaced for manual review</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[#0F766E]" />
+                  <span className="text-plenful-gray-500">Auto reviewed</span>
+                  <span className="font-medium text-plenful-gray-700">295</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[#5EEAD4]" />
+                  <span className="text-plenful-gray-500">Manual</span>
+                  <span className="font-medium text-plenful-gray-700">13</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                  <span className="text-plenful-gray-500">Pending</span>
+                  <span className="font-medium text-plenful-gray-700">16</span>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#0F766E]" />
-                  <span className="text-plenful-gray-600">Auto reviewed</span>
-                </div>
-                <span className="font-medium text-plenful-gray-800">295</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#5EEAD4]" />
-                  <span className="text-plenful-gray-600">Manually reviewed</span>
-                </div>
-                <span className="font-medium text-plenful-gray-800">13</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
-                  <span className="text-plenful-gray-600">Pending follow up</span>
-                </div>
-                <span className="font-medium text-plenful-gray-800">16</span>
-              </div>
+            <div className="flex h-2 rounded-full overflow-hidden bg-plenful-gray-100">
+              <div className="bg-[#0F766E] rounded-l-full" style={{ width: `${(295/324)*100}%` }} />
+              <div className="bg-[#5EEAD4]" style={{ width: `${(13/324)*100}%` }} />
+              <div className="bg-[#F59E0B] rounded-r-full" style={{ width: `${(16/324)*100}%` }} />
             </div>
           </div>
 
-          {/* Claims Table */}
-          <div className="lg:col-span-3 bg-white rounded-xl border border-plenful-gray-200">
+          <div className="bg-white rounded-xl border border-plenful-gray-200">
             <div className="px-5 pt-5 pb-0">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-1 bg-plenful-gray-50 rounded-lg p-1">
