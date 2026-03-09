@@ -1,34 +1,69 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 
 const CLAIMS = [
-  { id: "RC-2026-04821", mrn: "MRN-889421", patient: "Maria S.", prescriber: "Dr. James Chen, NPI 1234567890", specialist: "Dr. Lisa Park — Rheumatology", drug: "Humira (adalimumab)", confidence: 96, status: "pending", priority: "high", evidence: "Outgoing referral order + specialist consult note found", date: "2026-03-08", savings: 7200 },
-  { id: "RC-2026-04819", mrn: "MRN-667234", patient: "Robert J.", prescriber: "Dr. Priya Mehta, NPI 9876543210", specialist: "Dr. Alan Foster — Oncology", drug: "Keytruda (pembrolizumab)", confidence: 92, status: "pending", priority: "high", evidence: "Referral scheduling language in clinician notes", date: "2026-03-08", savings: 12400 },
-  { id: "RC-2026-04815", mrn: "MRN-443198", patient: "Diane K.", prescriber: "Dr. Marcus Webb, NPI 5678901234", specialist: "Dr. Sarah Nguyen — Endocrinology", drug: "Ozempic (semaglutide)", confidence: 88, status: "pending", priority: "medium", evidence: "Care coordination note + external provider NPI mismatch", date: "2026-03-07", savings: 4800 },
-  { id: "RC-2026-04812", mrn: "MRN-221067", patient: "Thomas R.", prescriber: "Dr. Angela Torres, NPI 3456789012", specialist: "Dr. Kevin Liu — Gastroenterology", drug: "Stelara (ustekinumab)", confidence: 84, status: "flagged", priority: "medium", evidence: "Referral order found; consult note missing", date: "2026-03-07", savings: 8900 },
-  { id: "RC-2026-04808", mrn: "MRN-558934", patient: "Susan L.", prescriber: "Dr. William Hayes, NPI 7890123456", specialist: "Dr. Rachel Kim — Dermatology", drug: "Skyrizi (risankizumab)", confidence: 79, status: "pending", priority: "medium", evidence: "Specialist scheduling + prescription pattern match", date: "2026-03-06", savings: 6100 },
-  { id: "RC-2026-04801", mrn: "MRN-334521", patient: "James W.", prescriber: "Dr. Olivia Martinez, NPI 2345678901", specialist: "Dr. David Patel — Neurology", drug: "Ocrevus (ocrelizumab)", confidence: 73, status: "flagged", priority: "low", evidence: "Weak referral signal — follow up recommended", date: "2026-03-06", savings: 11200 },
-  { id: "RC-2026-04798", mrn: "MRN-112889", patient: "Patricia M.", prescriber: "Dr. Robert Chang, NPI 6789012345", specialist: "Dr. Emily Watson — Pulmonology", drug: "Dupixent (dupilumab)", confidence: 91, status: "approved", priority: "high", evidence: "Complete referral chain verified", date: "2026-03-05", savings: 5300 },
-  { id: "RC-2026-04795", mrn: "MRN-990456", patient: "Michael B.", prescriber: "Dr. Sarah Johnson, NPI 4567890123", specialist: "Dr. Thomas Grant — Cardiology", drug: "Repatha (evolocumab)", confidence: 87, status: "approved", priority: "medium", evidence: "Referral order + care coordination confirmed", date: "2026-03-05", savings: 3800 },
+  { id: "RC-2026-04821", mrn: "MRN-889421", patient: "Maria S.", prescriber: "Dr. James Chen, NPI 1891734562", specialist: "Dr. Lisa Park — Rheumatology", drug: "Humira (adalimumab)", confidence: 96, status: "pending", priority: "high", evidence: "Outgoing referral order + specialist consult note found", date: "2026-03-08", savings: 28400 },
+  { id: "RC-2026-04819", mrn: "MRN-667234", patient: "Robert J.", prescriber: "Dr. Priya Mehta, NPI 1326847950", specialist: "Dr. Alan Foster — Oncology", drug: "Keytruda (pembrolizumab)", confidence: 92, status: "pending", priority: "high", evidence: "Referral scheduling language in clinician notes", date: "2026-03-08", savings: 52800 },
+  { id: "RC-2026-04815", mrn: "MRN-443198", patient: "Diane K.", prescriber: "Dr. Marcus Webb, NPI 1750382916", specialist: "Dr. Sarah Nguyen — Endocrinology", drug: "Ozempic (semaglutide)", confidence: 88, status: "pending", priority: "medium", evidence: "Care coordination note + external provider NPI mismatch", date: "2026-03-07", savings: 4200 },
+  { id: "RC-2026-04812", mrn: "MRN-221067", patient: "Thomas R.", prescriber: "Dr. Angela Torres, NPI 1284693750", specialist: "Dr. Kevin Liu — Gastroenterology", drug: "Stelara (ustekinumab)", confidence: 84, status: "flagged", priority: "medium", evidence: "Referral order found; consult note missing", date: "2026-03-07", savings: 14600 },
+  { id: "RC-2026-04808", mrn: "MRN-558934", patient: "Susan L.", prescriber: "Dr. William Hayes, NPI 1932567048", specialist: "Dr. Rachel Kim — Dermatology", drug: "Skyrizi (risankizumab)", confidence: 79, status: "pending", priority: "medium", evidence: "Specialist scheduling + prescription pattern match", date: "2026-03-06", savings: 18300 },
+  { id: "RC-2026-04801", mrn: "MRN-334521", patient: "James W.", prescriber: "Dr. Olivia Martinez, NPI 1467829305", specialist: "Dr. David Patel — Neurology", drug: "Ocrevus (ocrelizumab)", confidence: 73, status: "flagged", priority: "low", evidence: "Weak referral signal — follow up recommended", date: "2026-03-06", savings: 26100 },
+  { id: "RC-2026-04798", mrn: "MRN-112889", patient: "Patricia M.", prescriber: "Dr. Robert Chang, NPI 1658203947", specialist: "Dr. Emily Watson — Pulmonology", drug: "Dupixent (dupilumab)", confidence: 91, status: "approved", priority: "high", evidence: "Complete referral chain verified", date: "2026-03-05", savings: 15800 },
+  { id: "RC-2026-04795", mrn: "MRN-990456", patient: "Michael B.", prescriber: "Dr. Sarah Johnson, NPI 1543976281", specialist: "Dr. Thomas Grant — Cardiology", drug: "Repatha (evolocumab)", confidence: 87, status: "approved", priority: "medium", evidence: "Referral order + care coordination confirmed", date: "2026-03-05", savings: 6200 },
 ];
 
 type TabKey = "all" | "pending" | "flagged" | "approved";
+type SortColumn = "confidence" | "date" | "savings" | null;
+type SortDirection = "asc" | "desc";
 
 export default function QueuePage() {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
-  const filteredClaims = CLAIMS.filter((c) => {
-    const matchesTab = activeTab === "all" || c.status === activeTab;
-    const matchesSearch = searchQuery === "" ||
-      c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.drug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.specialist.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
+  const filteredAndSortedClaims = useMemo(() => {
+    let result = CLAIMS.filter((c) => {
+      const matchesTab = activeTab === "all" || c.status === activeTab;
+      const matchesSearch = searchQuery === "" ||
+        c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.drug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.specialist.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTab && matchesSearch;
+    });
+
+    if (sortColumn) {
+      result = [...result].sort((a, b) => {
+        let comparison = 0;
+        switch (sortColumn) {
+          case "confidence":
+            comparison = a.confidence - b.confidence;
+            break;
+          case "date":
+            comparison = a.date.localeCompare(b.date);
+            break;
+          case "savings":
+            comparison = a.savings - b.savings;
+            break;
+        }
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return result;
+  }, [activeTab, searchQuery, sortColumn, sortDirection]);
 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: "all", label: "All", count: CLAIMS.length },
@@ -40,6 +75,16 @@ export default function QueuePage() {
   const totalSavings = CLAIMS.reduce((sum, c) => sum + c.savings, 0);
   const pendingCount = CLAIMS.filter(c => c.status === "pending").length;
   const avgConfidence = Math.round(CLAIMS.reduce((sum, c) => sum + c.confidence, 0) / CLAIMS.length);
+
+  const SortArrow = ({ column }: { column: SortColumn }) => (
+    <span className={`ml-1 inline-flex ${sortColumn === column ? "text-plenful-teal" : "text-plenful-gray-300"}`}>
+      {sortColumn === column && sortDirection === "asc" ? (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+      ) : (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      )}
+    </span>
+  );
 
   return (
     <div className="min-h-screen bg-plenful-gray-50">
@@ -61,7 +106,6 @@ export default function QueuePage() {
 
         {/* KPI Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          {/* Card 1 - Total Claims Processed */}
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-plenful-gray-500">Referral candidates identified</span>
@@ -74,11 +118,10 @@ export default function QueuePage() {
             <p className="text-3xl font-semibold text-plenful-dark">{CLAIMS.length}</p>
             <p className="text-xs text-plenful-green mt-1 flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-              +12 from last week
+              +12 vs. prior week
             </p>
           </div>
 
-          {/* Card 2 - Pending Review */}
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-plenful-gray-500">Pending review</span>
@@ -92,7 +135,6 @@ export default function QueuePage() {
             <p className="text-xs text-plenful-gray-400 mt-1">Requires analyst action</p>
           </div>
 
-          {/* Card 3 - Avg Confidence */}
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-plenful-gray-500">Avg. AI confidence</span>
@@ -106,7 +148,6 @@ export default function QueuePage() {
             <p className="text-xs text-plenful-gray-400 mt-1">Across all candidates</p>
           </div>
 
-          {/* Card 4 - Potential Savings */}
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-plenful-gray-500">Potential dollar value</span>
@@ -128,20 +169,17 @@ export default function QueuePage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Donut Chart Card */}
           <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-            <h3 className="text-sm font-medium text-plenful-gray-700 mb-4">Claims processed today</h3>
+            <h3 className="text-sm font-medium text-plenful-gray-700 mb-1">Claims processed today</h3>
+            <p className="text-xs text-plenful-gray-400 mb-4">{CLAIMS.length} surfaced for manual review</p>
             <div className="flex justify-center mb-4">
               <svg width="140" height="140" viewBox="0 0 140 140">
-                {/* Background circle */}
                 <circle cx="70" cy="70" r="55" fill="none" stroke="#E5E7EB" strokeWidth="18" />
-                {/* Auto-reviewed (teal) - 91% */}
                 <circle cx="70" cy="70" r="55" fill="none" stroke="#0F766E" strokeWidth="18"
                   strokeDasharray={`${0.91 * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
                   strokeDashoffset="0" transform="rotate(-90 70 70)" strokeLinecap="round" />
-                {/* Manually reviewed (light teal) - 4% */}
                 <circle cx="70" cy="70" r="55" fill="none" stroke="#5EEAD4" strokeWidth="18"
                   strokeDasharray={`${0.04 * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
                   strokeDashoffset={`${-0.91 * 2 * Math.PI * 55}`} transform="rotate(-90 70 70)" strokeLinecap="round" />
-                {/* Pending (orange) - 5% */}
                 <circle cx="70" cy="70" r="55" fill="none" stroke="#F59E0B" strokeWidth="18"
                   strokeDasharray={`${0.05 * 2 * Math.PI * 55} ${2 * Math.PI * 55}`}
                   strokeDashoffset={`${-0.95 * 2 * Math.PI * 55}`} transform="rotate(-90 70 70)" strokeLinecap="round" />
@@ -176,7 +214,6 @@ export default function QueuePage() {
 
           {/* Claims Table */}
           <div className="lg:col-span-3 bg-white rounded-xl border border-plenful-gray-200">
-            {/* Table Header with Tabs */}
             <div className="px-5 pt-5 pb-0">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-1 bg-plenful-gray-50 rounded-lg p-1">
@@ -212,7 +249,6 @@ export default function QueuePage() {
               </div>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -221,14 +257,24 @@ export default function QueuePage() {
                     <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Patient</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Referred Specialist</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Drug</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Confidence</th>
+                    <th
+                      className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider cursor-pointer hover:text-plenful-gray-700 select-none"
+                      onClick={() => handleSort("confidence")}
+                    >
+                      Confidence<SortArrow column="confidence" />
+                    </th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Flags</th>
                     <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider">Opportunity</th>
+                    <th
+                      className="px-5 py-3 text-left text-xs font-medium text-plenful-gray-500 uppercase tracking-wider cursor-pointer hover:text-plenful-gray-700 select-none"
+                      onClick={() => handleSort("savings")}
+                    >
+                      340B Value<SortArrow column="savings" />
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClaims.map((claim) => (
+                  {filteredAndSortedClaims.map((claim) => (
                     <tr key={claim.id} className="border-b border-plenful-gray-50 hover:bg-plenful-gray-50/50 cursor-pointer transition-colors">
                       <td className="px-5 py-3.5">
                         <Link href="/review" className="text-sm font-medium text-plenful-teal-dark hover:underline">{claim.id}</Link>
@@ -301,11 +347,10 @@ export default function QueuePage() {
               </table>
             </div>
 
-            {/* Pagination */}
             <div className="px-5 py-3 flex items-center justify-between border-t border-plenful-gray-100">
               <span className="text-sm text-plenful-gray-500">Rows per page: <span className="font-medium">8</span></span>
               <div className="flex items-center gap-4">
-                <span className="text-sm text-plenful-gray-500">1–{filteredClaims.length} of {filteredClaims.length}</span>
+                <span className="text-sm text-plenful-gray-500">1–{filteredAndSortedClaims.length} of {filteredAndSortedClaims.length}</span>
                 <div className="flex gap-1">
                   <button className="p-1 rounded hover:bg-plenful-gray-100 text-plenful-gray-400">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>

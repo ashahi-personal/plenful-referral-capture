@@ -18,7 +18,7 @@ const clinicalQuestions = [
     question: "Was the patient referred to an external specialist for this condition?",
     confidence: 96,
     answer: "yes" as string,
-    rationale: "EHR contains outgoing referral order dated 08/15/2025 from Dr. Chen to Dr. Park (Rheumatology) for evaluation of moderate-to-severe Crohn's disease with biologic therapy consideration.",
+    rationale: "EHR contains outgoing referral order dated 08/15/2025 from Dr. Chen to Dr. Park (Rheumatology) for evaluation of moderate-to-severe rheumatoid arthritis with biologic therapy consideration.",
     sources: [
       { label: "EHR Referral Order (08/15/25)", link: "#" },
       { label: "Clinician Progress Note (08/12/25)", link: "#" },
@@ -29,7 +29,7 @@ const clinicalQuestions = [
     question: "Does the specialist's consult note confirm a care relationship?",
     confidence: 92,
     answer: "yes" as string,
-    rationale: "Dr. Park's consult note documents evaluation of patient for Crohn's disease management. Notes indicate 'patient referred by Dr. Chen for biologic therapy evaluation' and recommends Humira initiation.",
+    rationale: "Dr. Park's consult note documents evaluation of patient for rheumatoid arthritis management. Notes indicate 'patient referred by Dr. Chen for biologic therapy evaluation' and recommends Humira initiation given inadequate response to methotrexate.",
     sources: [
       { label: "Specialist Consult Note (09/02/25)", link: "#" },
       { label: "EHR Medication History", link: "#" },
@@ -40,7 +40,7 @@ const clinicalQuestions = [
     question: "Is the prescribed medication consistent with the referral specialty?",
     confidence: 99,
     answer: "yes" as string,
-    rationale: "Humira (adalimumab) is a standard biologic treatment for moderate-to-severe Crohn's disease. Rheumatology/GI specialist prescribing pattern is consistent with referral indication.",
+    rationale: "Humira (adalimumab) is a standard biologic treatment for moderate-to-severe rheumatoid arthritis. Rheumatology specialist prescribing pattern is consistent with referral indication.",
     sources: [
       { label: "Prescription Record (09/10/25)", link: "#" },
       { label: "Drug Formulary Reference", link: "#" },
@@ -48,13 +48,13 @@ const clinicalQuestions = [
   },
   {
     id: "q4",
-    question: "Has the patient ever received a biologic or targeted synthetic drug associated with an increased risk of TB?",
-    confidence: 78,
+    question: "Was the medication prescribed within the episode of care established by the referral?",
+    confidence: 88,
     answer: "yes" as string,
-    rationale: "Plenful has evaluated the patient's prescription history, but reviewed labs indicate a TB negative lab value. Historical medication list shows no prior biologic use before Humira initiation.",
+    rationale: "Referral order dated 08/15/2025, specialist consult on 09/02/2025, and Humira prescription initiated 09/10/2025. All events fall within a continuous 26-day care episode. Prescription follows directly from specialist recommendation documented in consult note.",
     sources: [
-      { label: "EHR Lab Results (08/20/25)", link: "#" },
-      { label: "EHR Medication History", link: "#" },
+      { label: "Referral Order (08/15/25)", link: "#" },
+      { label: "Prescription Record (09/10/25)", link: "#" },
     ],
   },
 ];
@@ -62,18 +62,18 @@ const clinicalQuestions = [
 const evidenceItems: EvidenceItem[] = [
   {
     id: "e1",
-    type: "Referral Order",
+    type: "Clinician Progress Note",
     source: "EHR — Epic FHIR",
-    date: "Aug 15, 2025",
-    excerpt: "Outgoing referral to Dr. Lisa Park, Rheumatology. Reason: Evaluation for biologic therapy — moderate to severely active Crohn's disease. Priority: Routine.",
+    date: "Aug 12, 2025",
+    excerpt: "\"...discussed escalation to biologic therapy with patient. Referring to rheumatology for specialized evaluation given inadequate response to methotrexate. Will coordinate with Dr. Park's office for timely appointment.\"",
     relevance: "strong",
   },
   {
     id: "e2",
-    type: "Clinician Progress Note",
+    type: "Referral Order",
     source: "EHR — Epic FHIR",
-    date: "Aug 12, 2025",
-    excerpt: "\"…discussed escalation to biologic therapy with patient. Referring to rheumatology for specialized evaluation given inadequate response to mesalamine. Will coordinate with Dr. Park's office for timely appointment.\"",
+    date: "Aug 15, 2025",
+    excerpt: "Outgoing referral to Dr. Lisa Park, Rheumatology. Reason: Evaluation for biologic therapy — moderate to severely active rheumatoid arthritis, inadequate response to conventional DMARDs. Priority: Routine.",
     relevance: "strong",
   },
   {
@@ -81,14 +81,14 @@ const evidenceItems: EvidenceItem[] = [
     type: "Specialist Consult Note",
     source: "EHR — Epic FHIR",
     date: "Sep 2, 2025",
-    excerpt: "\"Patient referred by Dr. Chen for evaluation of Crohn's disease management. Reviewed imaging and labs. Recommending initiation of adalimumab (Humira) given moderate-to-severe disease activity.\"",
+    excerpt: "\"Patient referred by Dr. Chen for evaluation of rheumatoid arthritis management. Reviewed imaging and labs. DAS28 score 4.8 indicating moderate disease activity. Recommending initiation of adalimumab (Humira) given inadequate response to methotrexate.\"",
     relevance: "strong",
   },
   {
     id: "e4",
     type: "Care Coordination Note",
     source: "EHR — Epic FHIR",
-    date: "Sep 5, 2025",
+    date: "Sep 15, 2025",
     excerpt: "\"Coordinated with Dr. Park's office regarding Humira start. Prior authorization initiated. Patient education materials provided. Follow-up scheduled in 8 weeks.\"",
     relevance: "moderate",
   },
@@ -96,8 +96,44 @@ const evidenceItems: EvidenceItem[] = [
 
 export default function ReviewPage() {
   const [approvalStatus, setApprovalStatus] = useState<"none" | "approved" | "flagged">("none");
+  const [confirmedQuestions, setConfirmedQuestions] = useState<Set<string>>(new Set());
+  const [manualReviewQuestions, setManualReviewQuestions] = useState<Set<string>>(new Set());
+  const [analystNotes, setAnalystNotes] = useState("");
 
   const overallConfidence = 96;
+  const verifiedCount = confirmedQuestions.size + manualReviewQuestions.size;
+
+  const handleConfirm = (qId: string) => {
+    setConfirmedQuestions(prev => {
+      const next = new Set(prev);
+      next.add(qId);
+      return next;
+    });
+    setManualReviewQuestions(prev => {
+      const next = new Set(prev);
+      next.delete(qId);
+      return next;
+    });
+  };
+
+  const handleManualReview = (qId: string) => {
+    setManualReviewQuestions(prev => {
+      const next = new Set(prev);
+      next.add(qId);
+      return next;
+    });
+    setConfirmedQuestions(prev => {
+      const next = new Set(prev);
+      next.delete(qId);
+      return next;
+    });
+  };
+
+  const getQuestionStatus = (qId: string) => {
+    if (confirmedQuestions.has(qId)) return "confirmed";
+    if (manualReviewQuestions.has(qId)) return "manual";
+    return "pending";
+  };
 
   return (
     <div className="min-h-screen bg-plenful-gray-50">
@@ -127,7 +163,6 @@ export default function ReviewPage() {
               <p className="text-sm text-plenful-gray-500">Identified on March 8, 2026 · AI Pipeline Stage 3 complete</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Overall Confidence Badge */}
               <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-plenful-magenta/10 to-pink-50 rounded-xl border border-plenful-magenta/20">
                 <svg className="w-5 h-5 text-plenful-magenta" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
@@ -138,7 +173,6 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          {/* Patient/Claim Details Grid */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mt-6 pt-6 border-t border-plenful-gray-100">
             <div>
               <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Patient</p>
@@ -148,7 +182,7 @@ export default function ReviewPage() {
             <div>
               <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Prescriber</p>
               <p className="text-sm font-medium text-plenful-gray-800">Dr. James Chen</p>
-              <p className="text-xs text-plenful-gray-500">NPI 1234567890</p>
+              <p className="text-xs text-plenful-gray-500">NPI 1891734562</p>
             </div>
             <div>
               <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Referred Specialist</p>
@@ -162,7 +196,7 @@ export default function ReviewPage() {
             </div>
             <div>
               <p className="text-xs text-plenful-gray-400 uppercase tracking-wider mb-1">Est. Annual Value</p>
-              <p className="text-sm font-bold text-plenful-teal-dark">$7,200</p>
+              <p className="text-sm font-bold text-plenful-teal-dark">$28,400</p>
               <p className="text-xs text-plenful-gray-500">340B savings</p>
             </div>
           </div>
@@ -171,80 +205,139 @@ export default function ReviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Clinical Questions */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider">Clinical Verification Questions</h2>
-
-            {clinicalQuestions.map((q) => (
-              <div key={q.id} className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-medium text-plenful-gray-400 uppercase">Clinical question</span>
-                      {/* Confidence badge */}
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        q.confidence >= 90
-                          ? "bg-gradient-to-r from-plenful-magenta/10 to-pink-50 text-plenful-magenta border border-plenful-magenta/20"
-                          : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border border-amber-200"
-                      }`}>
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                        </svg>
-                        {q.confidence}% Confidence
-                      </div>
-                    </div>
-                    <p className="text-sm font-medium text-plenful-gray-800 italic">&ldquo;{q.question}&rdquo;</p>
-                  </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider">Clinical Verification Questions</h2>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5">
+                  {clinicalQuestions.map((q) => {
+                    const status = getQuestionStatus(q.id);
+                    return (
+                      <div
+                        key={q.id}
+                        className={`w-2 h-2 rounded-full ${
+                          status === "confirmed" ? "bg-plenful-teal" :
+                          status === "manual" ? "bg-amber-400" :
+                          "bg-plenful-gray-200"
+                        }`}
+                      />
+                    );
+                  })}
                 </div>
-
-                {/* Answer */}
-                <div className="flex items-center gap-4 mb-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      q.answer === "yes" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
-                    }`}>
-                      {q.answer === "yes" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <span className="text-sm text-plenful-gray-700">Yes</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      q.answer === "no" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
-                    }`}>
-                      {q.answer === "no" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <span className="text-sm text-plenful-gray-700">No</span>
-                  </label>
-                </div>
-
-                {/* Rationale */}
-                <p className="text-sm text-plenful-gray-600 leading-relaxed mb-3">{q.rationale}</p>
-
-                {/* Sources */}
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-xs text-plenful-gray-400 mr-1">
-                    <svg className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    Sources:
-                  </span>
-                  {q.sources.map((src, i) => (
-                    <a key={i} href={src.link} className="text-xs text-plenful-teal hover:underline">
-                      [{i + 1}] {src.label}{i < q.sources.length - 1 ? "" : ""}
-                    </a>
-                  ))}
-                </div>
-
-                {/* AI Disclaimer + Actions */}
-                <div className="mt-4 pt-4 border-t border-plenful-gray-100 flex items-center justify-between">
-                  <p className="text-xs text-plenful-gray-400 italic">Plenful AI can make mistakes. Review outputs carefully before use.</p>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1.5 text-xs font-medium text-plenful-gray-600 border border-plenful-gray-200 rounded-lg hover:bg-plenful-gray-50 transition-colors">
-                      Manually review
-                    </button>
-                    <button className="px-3 py-1.5 text-xs font-medium text-white bg-plenful-magenta rounded-lg hover:bg-plenful-magenta-dark transition-colors">
-                      Confirm
-                    </button>
-                  </div>
-                </div>
+                <span className="text-xs text-plenful-gray-500">
+                  {verifiedCount} of {clinicalQuestions.length} verified
+                </span>
               </div>
-            ))}
+            </div>
+
+            {clinicalQuestions.map((q) => {
+              const status = getQuestionStatus(q.id);
+              return (
+                <div
+                  key={q.id}
+                  className={`bg-white rounded-xl border p-6 transition-all ${
+                    status === "confirmed"
+                      ? "border-plenful-teal/30 bg-plenful-teal-light/20"
+                      : status === "manual"
+                      ? "border-amber-300/50 bg-amber-50/30"
+                      : "border-plenful-gray-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-medium text-plenful-gray-400 uppercase">Clinical question</span>
+                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          q.confidence >= 90
+                            ? "bg-gradient-to-r from-plenful-magenta/10 to-pink-50 text-plenful-magenta border border-plenful-magenta/20"
+                            : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border border-amber-200"
+                        }`}>
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                          </svg>
+                          {q.confidence}% Confidence
+                        </div>
+                        {status === "confirmed" && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-plenful-teal-light text-plenful-teal-dark">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Confirmed
+                          </span>
+                        )}
+                        {status === "manual" && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            Under review
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-plenful-gray-800 italic">&ldquo;{q.question}&rdquo;</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 mb-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        q.answer === "yes" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
+                      }`}>
+                        {q.answer === "yes" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <span className="text-sm text-plenful-gray-700">Yes</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        q.answer === "no" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
+                      }`}>
+                        {q.answer === "no" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <span className="text-sm text-plenful-gray-700">No</span>
+                    </label>
+                  </div>
+
+                  <p className="text-sm text-plenful-gray-600 leading-relaxed mb-3">{q.rationale}</p>
+
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-xs text-plenful-gray-400 mr-1">
+                      <svg className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      Sources:
+                    </span>
+                    {q.sources.map((src, i) => (
+                      <a key={i} href={src.link} className="text-xs text-plenful-teal hover:underline">
+                        [{i + 1}] {src.label}
+                      </a>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-plenful-gray-100 flex items-center justify-between">
+                    <p className="text-xs text-plenful-gray-400 italic">Plenful AI can make mistakes. Review outputs carefully before use.</p>
+                    {status === "pending" ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleManualReview(q.id)}
+                          className="px-3 py-1.5 text-xs font-medium text-plenful-gray-600 border border-plenful-gray-200 rounded-lg hover:bg-plenful-gray-50 transition-colors"
+                        >
+                          Manually review
+                        </button>
+                        <button
+                          onClick={() => handleConfirm(q.id)}
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-plenful-magenta rounded-lg hover:bg-plenful-magenta-dark transition-colors"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setConfirmedQuestions(prev => { const n = new Set(prev); n.delete(q.id); return n; });
+                          setManualReviewQuestions(prev => { const n = new Set(prev); n.delete(q.id); return n; });
+                        }}
+                        className="text-xs text-plenful-gray-400 hover:text-plenful-gray-600 underline"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Right Column - Evidence Chain + Actions */}
@@ -255,6 +348,15 @@ export default function ReviewPage() {
 
               {approvalStatus === "none" ? (
                 <div className="space-y-3">
+                  {/* Analyst notes */}
+                  <div className="mb-1">
+                    <textarea
+                      value={analystNotes}
+                      onChange={(e) => setAnalystNotes(e.target.value)}
+                      placeholder="Add decision rationale (optional)..."
+                      className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-plenful-gray-50 focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent resize-none h-20"
+                    />
+                  </div>
                   <button
                     onClick={() => setApprovalStatus("approved")}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-plenful-teal rounded-xl hover:bg-plenful-teal-dark transition-colors"
@@ -292,6 +394,9 @@ export default function ReviewPage() {
                     {approvalStatus === "approved" ? "Claim Approved" : "Flagged for Follow-up"}
                   </p>
                   <p className="text-xs text-plenful-gray-500 mt-1">Decision recorded · Audit trail updated</p>
+                  {analystNotes && (
+                    <p className="text-xs text-plenful-gray-500 mt-2 italic border-t border-plenful-gray-200 pt-2">&ldquo;{analystNotes}&rdquo;</p>
+                  )}
                   <button
                     onClick={() => setApprovalStatus("none")}
                     className="mt-3 text-xs text-plenful-gray-400 hover:text-plenful-gray-600 underline"
@@ -308,7 +413,6 @@ export default function ReviewPage() {
               <div className="space-y-4">
                 {evidenceItems.map((item, index) => (
                   <div key={item.id} className="relative">
-                    {/* Timeline connector */}
                     {index < evidenceItems.length - 1 && (
                       <div className="absolute left-[11px] top-8 bottom-0 w-0.5 bg-plenful-gray-200" style={{ height: "calc(100% + 8px)" }} />
                     )}
