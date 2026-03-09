@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 
@@ -12,50 +13,60 @@ interface EvidenceItem {
   relevance: "strong" | "moderate" | "weak";
 }
 
+interface QuestionState {
+  status: "pending" | "agreed" | "overridden";
+  answer: string;
+  overrideNote: string;
+}
+
 const clinicalQuestions = [
   {
     id: "q1",
     question: "Was the patient referred to an external specialist for this condition?",
     confidence: 96,
-    answer: "yes" as string,
+    aiAnswer: "yes",
     rationale: "EHR contains outgoing referral order dated 08/15/2025 from Dr. Chen to Dr. Park (Rheumatology) for evaluation of moderate-to-severe rheumatoid arthritis with biologic therapy consideration.",
     sources: [
       { label: "EHR Referral Order (08/15/25)", link: "#" },
       { label: "Clinician Progress Note (08/12/25)", link: "#" },
     ],
+    evidenceIds: ["e1", "e2"],
   },
   {
     id: "q2",
     question: "Does the specialist's consult note confirm a care relationship?",
     confidence: 92,
-    answer: "yes" as string,
+    aiAnswer: "yes",
     rationale: "Dr. Park's consult note documents evaluation of patient for rheumatoid arthritis management. Notes indicate 'patient referred by Dr. Chen for biologic therapy evaluation' and recommends Humira initiation given inadequate response to methotrexate.",
     sources: [
       { label: "Specialist Consult Note (09/02/25)", link: "#" },
       { label: "EHR Medication History", link: "#" },
     ],
+    evidenceIds: ["e3"],
   },
   {
     id: "q3",
     question: "Is the prescribed medication consistent with the referral specialty?",
     confidence: 99,
-    answer: "yes" as string,
+    aiAnswer: "yes",
     rationale: "Humira (adalimumab) is a standard biologic treatment for moderate-to-severe rheumatoid arthritis. Rheumatology specialist prescribing pattern is consistent with referral indication.",
     sources: [
       { label: "Prescription Record (09/10/25)", link: "#" },
       { label: "Drug Formulary Reference", link: "#" },
     ],
+    evidenceIds: ["e3"],
   },
   {
     id: "q4",
     question: "Was the medication prescribed within the episode of care established by the referral?",
     confidence: 88,
-    answer: "yes" as string,
+    aiAnswer: "yes",
     rationale: "Referral order dated 08/15/2025, specialist consult on 09/02/2025, and Humira prescription initiated 09/10/2025. All events fall within a continuous 26-day care episode. Prescription follows directly from specialist recommendation documented in consult note.",
     sources: [
       { label: "Referral Order (08/15/25)", link: "#" },
       { label: "Prescription Record (09/10/25)", link: "#" },
     ],
+    evidenceIds: ["e2", "e4"],
   },
 ];
 
@@ -95,51 +106,121 @@ const evidenceItems: EvidenceItem[] = [
 ];
 
 export default function ReviewPage() {
-  const [approvalStatus, setApprovalStatus] = useState<"none" | "approved" | "flagged">("none");
-  const [confirmedQuestions, setConfirmedQuestions] = useState<Set<string>>(new Set());
-  const [manualReviewQuestions, setManualReviewQuestions] = useState<Set<string>>(new Set());
+  const router = useRouter();
+  const [approvalStatus, setApprovalStatus] = useState<"none" | "approved" | "flagged" | "rejected">("none");
+  const [questionStates, setQuestionStates] = useState<Record<string, QuestionState>>(() => {
+    const initial: Record<string, QuestionState> = {};
+    clinicalQuestions.forEach(q => {
+      initial[q.id] = { status: "pending", answer: q.aiAnswer, overrideNote: "" };
+    });
+    return initial;
+  });
+  const [overridingQuestion, setOverridingQuestion] = useState<string | null>(null);
+  const [tempAnswer, setTempAnswer] = useState<string>("");
+  const [tempNote, setTempNote] = useState<string>("");
   const [analystNotes, setAnalystNotes] = useState("");
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [isSticky, setIsSticky] = useState(false);
 
   const overallConfidence = 96;
-  const verifiedCount = confirmedQuestions.size + manualReviewQuestions.size;
+  const resolvedCount = Object.values(questionStates).filter(s => s.status !== "pending").length;
+  const allResolved = resolvedCount === clinicalQuestions.length;
+  const hasOverride = Object.values(questionStates).some(s => s.status === "overridden" && s.answer === "no");
 
-  const handleConfirm = (qId: string) => {
-    setConfirmedQuestions(prev => {
+  useEffect(() => {
+    const handleScroll = () => setIsSticky(window.scrollY > 300);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleAgree = (qId: string) => {
+    const q = clinicalQuestions.find(cq => cq.id === qId);
+    setQuestionStates(prev => ({
+      ...prev,
+      [qId]: { status: "agreed", answer: q?.aiAnswer || "yes", overrideNote: "" }
+    }));
+    setOverridingQuestion(null);
+  };
+
+  const startOverride = (qId: string) => {
+    const current = questionStates[qId];
+    setOverridingQuestion(qId);
+    setTempAnswer(current.answer === "yes" ? "no" : "yes");
+    setTempNote(current.overrideNote);
+  };
+
+  const saveOverride = (qId: string) => {
+    setQuestionStates(prev => ({
+      ...prev,
+      [qId]: { status: "overridden", answer: tempAnswer, overrideNote: tempNote }
+    }));
+    setOverridingQuestion(null);
+    setTempAnswer("");
+    setTempNote("");
+  };
+
+  const resetQuestion = (qId: string) => {
+    const q = clinicalQuestions.find(cq => cq.id === qId);
+    setQuestionStates(prev => ({
+      ...prev,
+      [qId]: { status: "pending", answer: q?.aiAnswer || "yes", overrideNote: "" }
+    }));
+    setOverridingQuestion(null);
+  };
+
+  const toggleEvidence = (qId: string) => {
+    setExpandedEvidence(prev => {
       const next = new Set(prev);
-      next.add(qId);
-      return next;
-    });
-    setManualReviewQuestions(prev => {
-      const next = new Set(prev);
-      next.delete(qId);
+      if (next.has(qId)) next.delete(qId); else next.add(qId);
       return next;
     });
   };
 
-  const handleManualReview = (qId: string) => {
-    setManualReviewQuestions(prev => {
-      const next = new Set(prev);
-      next.add(qId);
-      return next;
-    });
-    setConfirmedQuestions(prev => {
-      const next = new Set(prev);
-      next.delete(qId);
-      return next;
-    });
-  };
-
-  const getQuestionStatus = (qId: string) => {
-    if (confirmedQuestions.has(qId)) return "confirmed";
-    if (manualReviewQuestions.has(qId)) return "manual";
-    return "pending";
-  };
+  const getEvidenceForQuestion = (ids: string[]) => evidenceItems.filter(e => ids.includes(e.id));
 
   return (
     <div className="min-h-screen bg-plenful-gray-50">
       <Navbar />
 
-      <div className="max-w-[1400px] mx-auto px-6 py-8">
+      {/* Sticky Progress Bar */}
+      {isSticky && approvalStatus === "none" && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-plenful-gray-200 shadow-sm">
+          <div className="max-w-[900px] mx-auto px-6 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-plenful-dark">RC-2026-04821</span>
+              <span className="text-xs text-plenful-gray-400">&middot;</span>
+              <span className="text-sm font-bold text-plenful-teal-dark">$28,400</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                {clinicalQuestions.map((q) => {
+                  const state = questionStates[q.id];
+                  return (
+                    <div
+                      key={q.id}
+                      className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                        state.status === "agreed" ? "bg-plenful-teal" :
+                        state.status === "overridden" ? "bg-amber-400" :
+                        "bg-plenful-gray-200"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+              <span className="text-xs text-plenful-gray-500">
+                {resolvedCount}/{clinicalQuestions.length} reviewed
+              </span>
+              {allResolved && (
+                <span className="text-xs font-medium text-plenful-teal bg-plenful-teal-light px-2 py-0.5 rounded-full">Ready</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-[900px] mx-auto px-6 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm mb-6">
           <Link href="/queue" className="text-plenful-teal hover:underline">Review Queue</Link>
@@ -153,23 +234,17 @@ export default function ReviewPage() {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-xl font-semibold text-plenful-dark">Claim RC-2026-04821</h1>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                  Pending Review
-                </span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">
-                  High value
-                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">Pending Review</span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">High value</span>
               </div>
-              <p className="text-sm text-plenful-gray-500">Identified on March 8, 2026 · AI Pipeline Stage 3 complete</p>
+              <p className="text-sm text-plenful-gray-500">Identified on March 8, 2026 &middot; AI Pipeline Stage 3 complete</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-plenful-magenta/10 to-pink-50 rounded-xl border border-plenful-magenta/20">
-                <svg className="w-5 h-5 text-plenful-magenta" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                </svg>
-                <span className="text-lg font-bold text-plenful-magenta">{overallConfidence}%</span>
-                <span className="text-xs text-plenful-magenta/70">Confidence</span>
-              </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-plenful-magenta/10 to-pink-50 rounded-xl border border-plenful-magenta/20">
+              <svg className="w-5 h-5 text-plenful-magenta" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+              </svg>
+              <span className="text-lg font-bold text-plenful-magenta">{overallConfidence}%</span>
+              <span className="text-xs text-plenful-magenta/70">Confidence</span>
             </div>
           </div>
 
@@ -202,214 +277,332 @@ export default function ReviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Clinical Questions */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider">Clinical Verification Questions</h2>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5">
-                  {clinicalQuestions.map((q) => {
-                    const status = getQuestionStatus(q.id);
-                    return (
-                      <div
-                        key={q.id}
-                        className={`w-2 h-2 rounded-full ${
-                          status === "confirmed" ? "bg-plenful-teal" :
-                          status === "manual" ? "bg-amber-400" :
-                          "bg-plenful-gray-200"
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-                <span className="text-xs text-plenful-gray-500">
-                  {verifiedCount} of {clinicalQuestions.length} verified
-                </span>
-              </div>
+        {/* Progress Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider">Clinical Verification</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {clinicalQuestions.map((q) => {
+                const state = questionStates[q.id];
+                return (
+                  <div
+                    key={q.id}
+                    className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                      state.status === "agreed" ? "bg-plenful-teal" :
+                      state.status === "overridden" ? "bg-amber-400" :
+                      "bg-plenful-gray-200"
+                    }`}
+                  />
+                );
+              })}
             </div>
+            <span className="text-xs text-plenful-gray-500">{resolvedCount} of {clinicalQuestions.length} reviewed</span>
+            {allResolved && !hasOverride && (
+              <span className="text-xs font-medium text-plenful-teal bg-plenful-teal-light px-2 py-0.5 rounded-full animate-pulse">Ready to approve</span>
+            )}
+            {allResolved && hasOverride && (
+              <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Override detected</span>
+            )}
+          </div>
+        </div>
 
-            {clinicalQuestions.map((q) => {
-              const status = getQuestionStatus(q.id);
-              return (
-                <div
-                  key={q.id}
-                  className={`bg-white rounded-xl border p-6 transition-all ${
-                    status === "confirmed"
-                      ? "border-plenful-teal/30 bg-plenful-teal-light/20"
-                      : status === "manual"
-                      ? "border-amber-300/50 bg-amber-50/30"
-                      : "border-plenful-gray-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-medium text-plenful-gray-400 uppercase">Clinical question</span>
-                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          q.confidence >= 90
-                            ? "bg-gradient-to-r from-plenful-magenta/10 to-pink-50 text-plenful-magenta border border-plenful-magenta/20"
-                            : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border border-amber-200"
-                        }`}>
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                          </svg>
-                          {q.confidence}% Confidence
-                        </div>
-                        {status === "confirmed" && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-plenful-teal-light text-plenful-teal-dark">
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                            Confirmed
-                          </span>
-                        )}
-                        {status === "manual" && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                            Under review
-                          </span>
-                        )}
+        {/* Clinical Questions — Single Column */}
+        <div className="space-y-4 mb-8">
+          {clinicalQuestions.map((q, qIndex) => {
+            const state = questionStates[q.id];
+            const isOverriding = overridingQuestion === q.id;
+            const relatedEvidence = getEvidenceForQuestion(q.evidenceIds);
+            const isEvidenceExpanded = expandedEvidence.has(q.id);
+
+            return (
+              <div
+                key={q.id}
+                className={`bg-white rounded-xl border p-6 transition-all ${
+                  state.status === "agreed"
+                    ? "border-plenful-teal/30 bg-plenful-teal-light/20"
+                    : state.status === "overridden"
+                    ? "border-amber-300/50 bg-amber-50/30"
+                    : "border-plenful-gray-200"
+                }`}
+              >
+                {/* Question Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-plenful-gray-400 uppercase">Q{qIndex + 1}</span>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        q.confidence >= 90
+                          ? "bg-gradient-to-r from-plenful-magenta/10 to-pink-50 text-plenful-magenta border border-plenful-magenta/20"
+                          : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 border border-amber-200"
+                      }`}>
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                        </svg>
+                        {q.confidence}%
                       </div>
-                      <p className="text-sm font-medium text-plenful-gray-800 italic">&ldquo;{q.question}&rdquo;</p>
+                      {state.status === "agreed" && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-plenful-teal-light text-plenful-teal-dark">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          Agreed
+                        </span>
+                      )}
+                      {state.status === "overridden" && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          Overridden
+                        </span>
+                      )}
                     </div>
+                    <p className="text-sm font-medium text-plenful-gray-800">{q.question}</p>
                   </div>
+                </div>
 
+                {/* AI Answer / Override Mode */}
+                {!isOverriding ? (
                   <div className="flex items-center gap-4 mb-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        q.answer === "yes" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-plenful-gray-400">AI Answer:</span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                        state.answer === "yes" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
                       }`}>
-                        {q.answer === "yes" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                      <span className="text-sm text-plenful-gray-700">Yes</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        q.answer === "no" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
-                      }`}>
-                        {q.answer === "no" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                      <span className="text-sm text-plenful-gray-700">No</span>
-                    </label>
-                  </div>
-
-                  <p className="text-sm text-plenful-gray-600 leading-relaxed mb-3">{q.rationale}</p>
-
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-xs text-plenful-gray-400 mr-1">
-                      <svg className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      Sources:
-                    </span>
-                    {q.sources.map((src, i) => (
-                      <a key={i} href={src.link} className="text-xs text-plenful-teal hover:underline">
-                        [{i + 1}] {src.label}
-                      </a>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-plenful-gray-100 flex items-center justify-between">
-                    <p className="text-xs text-plenful-gray-400 italic">Plenful AI can make mistakes. Review outputs carefully before use.</p>
-                    {status === "pending" ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleManualReview(q.id)}
-                          className="px-3 py-1.5 text-xs font-medium text-plenful-gray-600 border border-plenful-gray-200 rounded-lg hover:bg-plenful-gray-50 transition-colors"
-                        >
-                          Manually review
-                        </button>
-                        <button
-                          onClick={() => handleConfirm(q.id)}
-                          className="px-3 py-1.5 text-xs font-medium text-white bg-plenful-magenta rounded-lg hover:bg-plenful-magenta-dark transition-colors"
-                        >
-                          Confirm
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setConfirmedQuestions(prev => { const n = new Set(prev); n.delete(q.id); return n; });
-                          setManualReviewQuestions(prev => { const n = new Set(prev); n.delete(q.id); return n; });
-                        }}
-                        className="text-xs text-plenful-gray-400 hover:text-plenful-gray-600 underline"
-                      >
-                        Reset
-                      </button>
+                        {state.answer === "yes" ? "Yes" : "No"}
+                      </span>
+                    </div>
+                    {state.status === "overridden" && state.answer !== q.aiAnswer && (
+                      <span className="text-xs text-amber-600 italic">
+                        (AI said {q.aiAnswer === "yes" ? "Yes" : "No"} — analyst overrode)
+                      </span>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Right Column - Evidence Chain + Actions */}
-          <div className="space-y-6">
-            {/* Action Panel */}
-            <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider mb-4">Analyst Decision</h3>
-
-              {approvalStatus === "none" ? (
-                <div className="space-y-3">
-                  {/* Analyst notes */}
-                  <div className="mb-1">
+                ) : (
+                  <div className="mb-4 p-3 bg-amber-50/50 border border-amber-200/50 rounded-lg">
+                    <p className="text-xs font-medium text-amber-700 mb-2">Override AI Answer</p>
+                    <div className="flex items-center gap-4 mb-3">
+                      <label className="flex items-center gap-2 cursor-pointer" onClick={() => setTempAnswer("yes")}>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          tempAnswer === "yes" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
+                        }`}>
+                          {tempAnswer === "yes" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <span className="text-sm text-plenful-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer" onClick={() => setTempAnswer("no")}>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          tempAnswer === "no" ? "border-plenful-teal bg-plenful-teal" : "border-plenful-gray-300"
+                        }`}>
+                          {tempAnswer === "no" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <span className="text-sm text-plenful-gray-700">No</span>
+                      </label>
+                    </div>
+                    {tempAnswer === "no" && (
+                      <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                        Overriding to &quot;No&quot; may disqualify this 340B capture.
+                      </div>
+                    )}
                     <textarea
-                      value={analystNotes}
-                      onChange={(e) => setAnalystNotes(e.target.value)}
-                      placeholder="Add decision rationale (optional)..."
-                      className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-plenful-gray-50 focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent resize-none h-20"
+                      value={tempNote}
+                      onChange={(e) => setTempNote(e.target.value)}
+                      placeholder="Explain why you're overriding the AI answer..."
+                      className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none h-16 mb-2"
                     />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setOverridingQuestion(null)} className="px-3 py-1.5 text-xs font-medium text-plenful-gray-500 hover:text-plenful-gray-700">
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => saveOverride(q.id)}
+                        disabled={!tempNote.trim()}
+                        className="px-3 py-1.5 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Save Override
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setApprovalStatus("approved")}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-plenful-teal rounded-xl hover:bg-plenful-teal-dark transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    Approve & Capture
-                  </button>
-                  <button
-                    onClick={() => setApprovalStatus("flagged")}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Flag for Follow-up
-                  </button>
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-plenful-gray-600 bg-plenful-gray-50 border border-plenful-gray-200 rounded-xl hover:bg-plenful-gray-100 transition-colors">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
-                    Request Documentation
-                  </button>
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-plenful-gray-400 hover:text-red-500 transition-colors">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    Reject — Not a referral
-                  </button>
-                </div>
-              ) : (
-                <div className={`p-4 rounded-xl text-center ${
-                  approvalStatus === "approved" ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"
-                }`}>
-                  <svg className={`w-8 h-8 mx-auto mb-2 ${approvalStatus === "approved" ? "text-green-600" : "text-amber-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    {approvalStatus === "approved"
-                      ? <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      : <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    }
-                  </svg>
-                  <p className={`text-sm font-semibold ${approvalStatus === "approved" ? "text-green-700" : "text-amber-700"}`}>
-                    {approvalStatus === "approved" ? "Claim Approved" : "Flagged for Follow-up"}
-                  </p>
-                  <p className="text-xs text-plenful-gray-500 mt-1">Decision recorded · Audit trail updated</p>
-                  {analystNotes && (
-                    <p className="text-xs text-plenful-gray-500 mt-2 italic border-t border-plenful-gray-200 pt-2">&ldquo;{analystNotes}&rdquo;</p>
-                  )}
-                  <button
-                    onClick={() => setApprovalStatus("none")}
-                    className="mt-3 text-xs text-plenful-gray-400 hover:text-plenful-gray-600 underline"
-                  >
-                    Undo
+                )}
+
+                {/* Rationale */}
+                <p className="text-sm text-plenful-gray-600 leading-relaxed mb-3">{q.rationale}</p>
+
+                {/* Override Note */}
+                {state.status === "overridden" && state.overrideNote && !isOverriding && (
+                  <div className="mb-3 p-2.5 bg-amber-50 border border-amber-200/50 rounded-lg">
+                    <p className="text-xs font-medium text-amber-700 mb-0.5">Analyst Override Note</p>
+                    <p className="text-xs text-amber-600">{state.overrideNote}</p>
+                  </div>
+                )}
+
+                {/* Sources + Evidence Toggle */}
+                <div className="flex items-center gap-1 flex-wrap mb-1">
+                  <span className="text-xs text-plenful-gray-400 mr-1">
+                    <svg className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Sources:
+                  </span>
+                  {q.sources.map((src, i) => (
+                    <a key={i} href={src.link} className="text-xs text-plenful-teal hover:underline">[{i + 1}] {src.label}</a>
+                  ))}
+                  <button onClick={() => toggleEvidence(q.id)} className="ml-2 text-xs text-plenful-teal hover:underline flex items-center gap-0.5">
+                    <svg className={`w-3 h-3 transition-transform ${isEvidenceExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    {isEvidenceExpanded ? "Hide" : "View"} evidence
                   </button>
                 </div>
-              )}
+
+                {/* Inline Evidence */}
+                {isEvidenceExpanded && (
+                  <div className="mt-3 mb-1 space-y-2 pl-3 border-l-2 border-plenful-teal/20">
+                    {relatedEvidence.map((item) => (
+                      <div key={item.id} className="bg-plenful-gray-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-plenful-gray-700">{item.type}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                            item.relevance === "strong" ? "bg-green-50 text-green-700" :
+                            item.relevance === "moderate" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
+                          }`}>{item.relevance}</span>
+                        </div>
+                        <p className="text-xs text-plenful-gray-400 mb-1">{item.source} &middot; {item.date}</p>
+                        <p className="text-xs text-plenful-gray-600 leading-relaxed">{item.excerpt}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Action Footer */}
+                <div className="mt-4 pt-4 border-t border-plenful-gray-100 flex items-center justify-between">
+                  <p className="text-xs text-plenful-gray-400 italic">Plenful AI can make mistakes. Review outputs carefully.</p>
+                  {state.status === "pending" && !isOverriding ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startOverride(q.id)}
+                        className="px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors"
+                      >
+                        Override
+                      </button>
+                      <button
+                        onClick={() => handleAgree(q.id)}
+                        className="px-3 py-1.5 text-xs font-medium text-white bg-plenful-teal rounded-lg hover:bg-plenful-teal-dark transition-colors"
+                      >
+                        Agree with AI
+                      </button>
+                    </div>
+                  ) : state.status !== "pending" && !isOverriding ? (
+                    <button onClick={() => resetQuestion(q.id)} className="text-xs text-plenful-gray-400 hover:text-plenful-gray-600 underline">Reset</button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Analyst Decision Panel */}
+        {approvalStatus === "none" ? (
+          <div className="bg-white rounded-xl border border-plenful-gray-200 p-6 mb-6">
+            <h3 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider mb-4">Analyst Decision</h3>
+
+            {!allResolved && (
+              <div className="mb-4 p-3 bg-plenful-gray-50 rounded-lg border border-plenful-gray-200">
+                <p className="text-sm text-plenful-gray-500 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-plenful-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  Review all {clinicalQuestions.length} questions to unlock approval
+                </p>
+                <div className="mt-2 flex h-1.5 rounded-full overflow-hidden bg-plenful-gray-200">
+                  <div className="bg-plenful-teal rounded-full transition-all duration-300" style={{ width: `${(resolvedCount / clinicalQuestions.length) * 100}%` }} />
+                </div>
+              </div>
+            )}
+
+            {hasOverride && allResolved && (
+              <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <p className="text-sm text-amber-700 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  You overrode one or more AI answers to &quot;No.&quot; This claim may not qualify for 340B capture.
+                </p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <textarea
+                value={analystNotes}
+                onChange={(e) => setAnalystNotes(e.target.value)}
+                placeholder="Add decision rationale (optional)..."
+                className="w-full px-3 py-2 text-sm border border-plenful-gray-200 rounded-lg bg-plenful-gray-50 focus:outline-none focus:ring-2 focus:ring-plenful-teal focus:border-transparent resize-none h-20"
+              />
             </div>
 
-            {/* Evidence Chain */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setApprovalStatus("approved")}
+                disabled={!allResolved}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-xl transition-colors ${
+                  allResolved
+                    ? "text-white bg-plenful-teal hover:bg-plenful-teal-dark"
+                    : "text-plenful-gray-400 bg-plenful-gray-100 cursor-not-allowed"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                Approve &amp; Capture
+              </button>
+              <button
+                onClick={() => setApprovalStatus("flagged")}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Flag for Follow-up
+              </button>
+            </div>
+            <button
+              onClick={() => setApprovalStatus("rejected")}
+              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-plenful-gray-400 hover:text-red-500 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              Reject — Not a referral
+            </button>
+          </div>
+        ) : (
+          <div className={`rounded-xl border p-6 mb-6 text-center ${
+            approvalStatus === "approved" ? "bg-green-50 border-green-200" :
+            approvalStatus === "flagged" ? "bg-amber-50 border-amber-200" :
+            "bg-red-50 border-red-200"
+          }`}>
+            <svg className={`w-10 h-10 mx-auto mb-3 ${
+              approvalStatus === "approved" ? "text-green-600" :
+              approvalStatus === "flagged" ? "text-amber-600" : "text-red-600"
+            }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {approvalStatus === "approved" && <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />}
+              {approvalStatus === "flagged" && <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
+              {approvalStatus === "rejected" && <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />}
+            </svg>
+            <p className={`text-lg font-semibold ${
+              approvalStatus === "approved" ? "text-green-700" :
+              approvalStatus === "flagged" ? "text-amber-700" : "text-red-700"
+            }`}>
+              {approvalStatus === "approved" ? "Claim Approved & Captured" :
+               approvalStatus === "flagged" ? "Flagged for Follow-up" : "Claim Rejected"}
+            </p>
+            <p className="text-sm text-plenful-gray-500 mt-1">Decision recorded &middot; Audit trail updated</p>
+            {analystNotes && (
+              <p className="text-sm text-plenful-gray-500 mt-3 italic border-t border-plenful-gray-200 pt-3">&ldquo;{analystNotes}&rdquo;</p>
+            )}
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <button
+                onClick={() => router.push("/queue")}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-plenful-teal rounded-xl hover:bg-plenful-teal-dark transition-colors"
+              >
+                Next Claim
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </button>
+              <button onClick={() => setApprovalStatus("none")} className="text-sm text-plenful-gray-400 hover:text-plenful-gray-600 underline">Undo</button>
+            </div>
+          </div>
+        )}
+
+        {/* Collapsible Full Evidence Chain */}
+        <div className="mb-6">
+          <button onClick={() => setShowAllEvidence(!showAllEvidence)} className="flex items-center gap-2 text-sm font-medium text-plenful-gray-600 hover:text-plenful-gray-800 mb-2">
+            <svg className={`w-4 h-4 transition-transform ${showAllEvidence ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            Full Evidence Chain ({evidenceItems.length} documents)
+          </button>
+          {showAllEvidence && (
             <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider mb-4">Evidence Chain</h3>
               <div className="space-y-4">
                 {evidenceItems.map((item, index) => (
                   <div key={item.id} className="relative">
@@ -431,7 +624,7 @@ export default function ReviewPage() {
                             item.relevance === "moderate" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-500"
                           }`}>{item.relevance}</span>
                         </div>
-                        <p className="text-xs text-plenful-gray-400 mb-1">{item.source} · {item.date}</p>
+                        <p className="text-xs text-plenful-gray-400 mb-1">{item.source} &middot; {item.date}</p>
                         <p className="text-xs text-plenful-gray-600 leading-relaxed">{item.excerpt}</p>
                       </div>
                     </div>
@@ -439,10 +632,17 @@ export default function ReviewPage() {
                 ))}
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Audit Trail */}
+        {/* Collapsible Audit Trail */}
+        <div className="mb-6">
+          <button onClick={() => setShowAuditTrail(!showAuditTrail)} className="flex items-center gap-2 text-sm font-medium text-plenful-gray-600 hover:text-plenful-gray-800 mb-2">
+            <svg className={`w-4 h-4 transition-transform ${showAuditTrail ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            Processing Audit Trail
+          </button>
+          {showAuditTrail && (
             <div className="bg-white rounded-xl border border-plenful-gray-200 p-6">
-              <h3 className="text-sm font-semibold text-plenful-gray-700 uppercase tracking-wider mb-4">Processing Audit Trail</h3>
               <div className="space-y-3">
                 {[
                   { stage: "Stage 1: Ingest", status: "complete", time: "Mar 8, 10:02 AM", detail: "TPA claims + EHR encounters normalized" },
@@ -469,7 +669,7 @@ export default function ReviewPage() {
                 ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
