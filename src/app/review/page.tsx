@@ -50,7 +50,7 @@ const clinicalQuestions = [
     confidence: 88,
     aiAnswer: "yes",
     rationale: "Referral order dated 08/15/2025, specialist consult on 09/02/2025, and Humira prescription initiated 09/10/2025. All events fall within a continuous 26-day care episode. Prescription follows directly from specialist recommendation documented in consult note.",
-    evidenceIds: ["e2", "e4"],
+    evidenceIds: ["e2", "e4", "e5"],
   },
 ];
 
@@ -74,13 +74,21 @@ const evidenceItems: EvidenceItem[] = [
   {
     id: "e3",
     type: "Specialist Consult Note",
-    source: "EHR — Epic FHIR",
+    source: "HIE — CommonWell",
     date: "Sep 2, 2025",
     excerpt: "\"Patient referred by Dr. Chen for evaluation of rheumatoid arthritis management. Reviewed imaging and labs. DAS28 score 4.8 indicating moderate disease activity. Recommending initiation of adalimumab (Humira) given inadequate response to methotrexate.\"",
     relevance: "strong",
   },
   {
     id: "e4",
+    type: "Dispensing Record",
+    source: "340B Split-Billing — Sentry",
+    date: "Sep 10, 2025",
+    excerpt: "Humira (adalimumab) 40mg/0.4mL pen — dispensed at 340B acquisition cost. Covered entity: Mercy Health System. Contract pharmacy: CVS #4821. Split-billing accumulator updated.",
+    relevance: "strong",
+  },
+  {
+    id: "e5",
     type: "Care Coordination Note",
     source: "EHR — Epic FHIR",
     date: "Sep 15, 2025",
